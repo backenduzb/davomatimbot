@@ -4,12 +4,12 @@ import (
 	attendanceHandlers "admin/internal/handlers/attendance"
 	handlers "admin/internal/handlers/auth"
 	importerHandlers "admin/internal/handlers/importer"
+	usersHandlers "admin/internal/handlers/users"
 	statisticsHandlers "admin/internal/handlers/statistics"
 	"admin/internal/middleware/auth"
 	"admin/internal/models"
 	"admin/internal/schemas/class"
 	"admin/internal/schemas/student"
-	"admin/internal/schemas/user/response"
 	"admin/internal/services/crud"
 
 	"github.com/gin-gonic/gin"
@@ -21,11 +21,16 @@ func SetupAuthRoutes(r *gin.Engine, db *gorm.DB) {
 
 	api.POST("/register", handlers.Register)
 	api.POST("/login", handlers.Login)
-	crud.RegisterCRUDRoutes[
-		models.User,
-		response.ProfileResponse,
-		response.ProfileResponse,
-	](api, "/users", db, auth.AuthMiddleware())
+	// Foydalanuvchilar uchun maxsus handlerlar: parolni xeshlash,
+	// duplicate username xatolarini to'g'ri qaytarish va bool maydonlarni
+	// (is_admin, is_banned, ...) to'g'ri yangilash uchun.
+	api.GET("/users", auth.AuthMiddleware(), usersHandlers.List)
+	api.POST("/users", auth.AuthMiddleware(), usersHandlers.Create)
+	api.GET("/users/:id", auth.AuthMiddleware(), usersHandlers.Retrieve)
+	api.PUT("/users/:id", auth.AuthMiddleware(), usersHandlers.Update)
+	api.PATCH("/users/:id", auth.AuthMiddleware(), usersHandlers.Update)
+	api.DELETE("/users/:id", auth.AuthMiddleware(), usersHandlers.Delete)
+
 	crud.RegisterCRUDRoutes[
 		models.Class,
 		class.Class,

@@ -17,6 +17,10 @@ func (ctrl *CRUDController[T, S, R]) Create(c *gin.Context) {
 		return
 	}
 	if err := ctrl.DB.Create(&model).Error; err != nil {
+		if IsUniqueViolation(err) {
+			c.JSON(http.StatusConflict, gin.H{"error": "Bunday yozuv allaqachon mavjud"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
