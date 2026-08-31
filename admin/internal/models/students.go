@@ -9,5 +9,5 @@ type Student struct {
 	ID uint
 	FullName string `gorm:"size:128"`
 	ClassID uint
-	Class Class `gorm:"consentraint:OnUpdate:CASCADE;OnDelete:RESTRICT;"`
+	Class Class `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 }

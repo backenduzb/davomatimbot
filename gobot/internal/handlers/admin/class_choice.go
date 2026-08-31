@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"bot/internal/handlers"
+	botHandlers "bot/internal/handlers"
 	"bot/internal/repository/sessions"
 	"bot/internal/repository/states"
 
@@ -47,5 +47,5 @@ func HandleAdminClassChoice(b *gotgbot.Bot, ctx *ext.Context) error {
 		ParseMode: "HTML",
 	})
 
-	return handlers.BeginAttendanceFlow(b, ctx)
+	return botHandlers.BeginAttendanceFlow(b, ctx)
 }
