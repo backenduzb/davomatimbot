@@ -37,8 +37,13 @@ func HandleAdminClassChoice(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	session.SetClassContext(userID, uint(classID))
 
-	className := session.ClassInfo[userID].ClassName
-	_, _ = b.SendMessage(ctx.EffectiveChat.Id, fmt.Sprintf("✅ <b>%s</b> sinfi tanlandi.", className), &gotgbot.SendMessageOpts{
+	detail, ok := session.ClassInfo[userID]
+	if !ok || detail.ClassName == "" || detail.ClassName == "-" {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Tanlangan sinf topilmadi. Iltimos, boshqa sinfni tanlang.", nil)
+		return handlers.NextConversationState(states.StateWaitingAdminClassChoice)
+	}
+
+	_, _ = b.SendMessage(ctx.EffectiveChat.Id, fmt.Sprintf("✅ <b>%s</b> sinfi tanlandi.", detail.ClassName), &gotgbot.SendMessageOpts{
 		ParseMode: "HTML",
 	})
 

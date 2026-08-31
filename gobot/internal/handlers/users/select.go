@@ -17,6 +17,10 @@ func HandleAbsentStudentSelected(b *gotgbot.Bot, ctx *ext.Context) error {
 	userID := uint(ctx.EffectiveUser.Id)
 	studentName := ctx.Message.Text
 	session := sessions.GetSession(userID)
+	if session == nil {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", nil)
+		return handlers.EndConversation()
+	}
 
 	studentID := students.GetStudentIDByName(studentName, userID)
 
@@ -50,6 +54,10 @@ func HandleReasonStudentSelected(b *gotgbot.Bot, ctx *ext.Context) error {
 	userID := uint(ctx.EffectiveUser.Id)
 	studentName := ctx.Message.Text
 	session := sessions.GetSession(userID)
+	if session == nil {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", nil)
+		return handlers.EndConversation()
+	}
 
 	studentID := students.GetStudentIDByName(studentName, userID)
 	if studentID == 0 {

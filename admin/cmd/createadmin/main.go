@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"admin/config/settings"
 	"admin/internal/database"
 	"admin/internal/services/auth"
 )
@@ -26,8 +27,7 @@ func main() {
 		adminUsername := adminCmd.String("username", "", "Admin foydalanuvchi nomi")
 		adminPassword := adminCmd.String("password", "", "Admin paroli")
 
-		err := adminCmd.Parse(os.Args[2:])
-		if err != nil {
+		if err := adminCmd.Parse(os.Args[2:]); err != nil {
 			fmt.Println("Argumentlarni o'qishda xatolik:", err)
 			os.Exit(1)
 		}
@@ -37,15 +37,19 @@ func main() {
 			os.Exit(1)
 		}
 
-		// 1. DSN (Bazaga ulanish ma'lumotlari)
-		// Agar env fayldan olsangiz os.Getenv("DSN") qiling, bo'lmasa o'z DSN'ingizni yozing:
-		dsn := "host=localhost user=postgres password=parolingiz dbname=sadmin port=5432 sslmode=disable"
-		
-		// 2. Bazaga ulanishni chaqiramiz
-		database.Connect(dsn)
+		// Bazaga ulanish ma'lumotlarini .env faylidan olamiz
+		settings.LoadEnv()
+		if settings.Envs.DB_URL == "" {
+			fmt.Println("Xatolik: .env faylida DATABASE_URL topilmadi!")
+			os.Exit(1)
+		}
 
-		// 3. Admin yaratish
-		auth.CreateAdminUser(*adminUsername, *adminPassword)
+		database.Connect(settings.Envs.DB_URL)
+
+		if err := auth.CreateAdminUser(*adminUsername, *adminPassword); err != nil {
+			fmt.Println("Admin yaratishda xatolik:", err)
+			os.Exit(1)
+		}
 
 		fmt.Printf("Muvaffaqiyatli yaratildi! username: %s 🎉\n", *adminUsername)
 

@@ -21,6 +21,11 @@ func HandleAbsentConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 	_, _ = query.Answer(b, nil)
 
 	session := sessions.GetSession(userID)
+	if session == nil {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", nil)
+		return handlers.EndConversation()
+	}
+
 	allStudents := students.GetAllStudents(userID)
 
 	if query.Data == "add_more_unexcused" {
