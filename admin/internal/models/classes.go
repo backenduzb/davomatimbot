@@ -17,5 +17,5 @@ type Class struct {
 	ClassNameID uint
 	ClassName ClassName `gorm:"foreignKey:ClassNameID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 	TeacherFullName string `gorm:"size:128"`
-	TeacherTelegramId string `gorm:"size:128"`
+	TeacherTelegramId string `gorm:"type:varchar(128)"`
 }

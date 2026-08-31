@@ -3,6 +3,7 @@ package routes
 import (
 	attendanceHandlers "admin/internal/handlers/attendance"
 	handlers "admin/internal/handlers/auth"
+	importerHandlers "admin/internal/handlers/importer"
 	statisticsHandlers "admin/internal/handlers/statistics"
 	"admin/internal/middleware/auth"
 	"admin/internal/models"
@@ -58,5 +59,9 @@ func SetupAuthRoutes(r *gin.Engine, db *gorm.DB) {
 	api.POST("/attendance/batch",
 		auth.AuthMiddleware(),
 		attendanceHandlers.BatchUpsert,
+	)
+	api.POST("/import/xlsx",
+		auth.AuthMiddleware(),
+		importerHandlers.UploadXLSX,
 	)
 }

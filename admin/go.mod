@@ -3,7 +3,7 @@ module admin
 go 1.26.4
 
 require (
-	github.com/360EntSecGroup-Skylar/excelize v1.4.1 // indirect
+	github.com/360EntSecGroup-Skylar/excelize v1.4.1
 	github.com/GoAdminGroup/go-admin v1.2.26 // indirect
 	github.com/GoAdminGroup/html v0.0.1 // indirect
 	github.com/GoAdminGroup/themes v0.0.48 // indirect

@@ -42,17 +42,18 @@ func CreateUser(username, password string) error {
 	return database.DB.Create(&user).Error
 }
 
-func CreateAdminUser(username, password string) error {
+func CreateAdminUser(username, password, telegramID string) error {
 	hash, err := HashPassword(password)
 	if err != nil {
 		return err
 	}
 
 	user := models.User{
-		Username: username,
-		Password: hash,
-		IsAdmin: true,
-		IsBanned: false,
+		Username:   username,
+		Password:   hash,
+		IsAdmin:    true,
+		IsBanned:   false,
+		TelegramId: telegramID,
 	}
 
 	return database.DB.Create(&user).Error

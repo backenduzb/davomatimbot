@@ -14,7 +14,7 @@ type User struct {
 	IsOnline bool `gorm:"default:false"`
 	IsBanned bool `gorm:"default:false"`
 	IsAdmin bool `gorm:"default:false"`
-	TelegramId string `gorm:"column:telegram_id;type:bigint;uniqueIndex"`
+	TelegramId string `gorm:"column:telegram_id;type:varchar(128)"`
 	
 	LastSeen time.Time
 }
