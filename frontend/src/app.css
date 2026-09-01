@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import "animations.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+
+@font-face {
+    font-family: "Inter";
+    font-weight: 100 900;
+    font-display: swap;
+    font-style: normal;
+    font-named-instance: "Regular";
+    src: url("lib/fonts/Inter-VariableFont_opsz,wght.ttf") format("truetype");
+}
+
+body {
+    font-family: "Inter";
+    font-weight: 500;
+}
