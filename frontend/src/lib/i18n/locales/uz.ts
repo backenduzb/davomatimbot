@@ -133,6 +133,7 @@ export default {
   },
   dashboard: {
     title: "Boshqaruv paneli",
+    subtitle: "Bugungi davomat statistikasi va Excel'dan import",
     total_classes: "Jami sinflar",
     total_students: "Jami o'quvchilar",
     present: "Kelgan",
@@ -152,6 +153,25 @@ export default {
     distribution_chart: "Davomat taqsimoti",
     comparison_chart: "Sinflar bo'yicha solishtirish",
     class_report: "Bugungi sinf hisoboti",
+  },
+  importer: {
+    upload_title: "O'quvchilarni Excel'dan import qilish",
+    upload_subtitle:
+      "I.F.Sh va Sinf ustunlari bo'lgan .xlsx faylni yuklang — o'quvchilar, sinflar va sinf nomlari avtomatik yaratiladi.",
+    file_label: "XLSX fayl",
+    file_hint: "Sinf nomlari avtomatik normallashtiriladi (masalan, 10-a2 → 10A2).",
+    choose_file: "Fayl tanlash",
+    upload_button: "Yuklab import qilish",
+    uploading: "Yuklanmoqda...",
+    drop_hint: "Faylni shu yerga tashlang yoki tugma orqali tanlang",
+    file_required: "Avval .xlsx fayl tanlang.",
+    only_xlsx: "Iltimos, faqat .xlsx fayl tanlang.",
+    success: "Import muvaffaqiyatli yakunlandi ✅",
+    result_title: "Import natijasi",
+    students_created: "Yangi o'quvchilar",
+    students_linked: "Sinfga biriktirildi",
+    classes_created: "Yangi sinflar",
+    class_names_created: "Yangi sinf nomlari",
   },
   students: {
     full_name: "F.I.SH",

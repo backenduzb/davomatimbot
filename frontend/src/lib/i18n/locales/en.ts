@@ -122,6 +122,7 @@ export default {
   },
   dashboard: {
     title: "Dashboard",
+    subtitle: "Today's attendance statistics and Excel import",
     total_classes: "Total classes",
     total_students: "Total students",
     present: "Present",
@@ -141,6 +142,25 @@ export default {
     distribution_chart: "Attendance distribution",
     comparison_chart: "Class comparison",
     class_report: "Today's class report",
+  },
+  importer: {
+    upload_title: "Import students from Excel",
+    upload_subtitle:
+      "Upload an .xlsx file with I.F.Sh (full name) and Sinf (class) columns — students, classes and class names will be created automatically.",
+    file_label: "XLSX file",
+    file_hint: "Class names are normalized automatically (e.g. 10-a2 → 10A2).",
+    choose_file: "Choose file",
+    upload_button: "Upload & import",
+    uploading: "Uploading...",
+    drop_hint: "Drop the file here or use the button",
+    file_required: "Select an .xlsx file first.",
+    only_xlsx: "Please select an .xlsx file only.",
+    success: "Import completed successfully ✅",
+    result_title: "Import result",
+    students_created: "New students",
+    students_linked: "Linked to class",
+    classes_created: "New classes",
+    class_names_created: "New class names",
   },
   students: {
     full_name: "Full name",

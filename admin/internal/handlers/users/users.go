@@ -1,6 +1,8 @@
 package users
 
 import (
+	crand "crypto/rand"
+	"math/big"
 	"net/http"
 	"strconv"
 
@@ -15,9 +17,10 @@ import (
 )
 
 // CreateRequest — yangi foydalanuvchi yaratish uchun so'rov.
+// Parol ixtiyoriy: berilmasa avtomatik tasodifiy parol yaratiladi.
 type CreateRequest struct {
 	Username   string `json:"username" binding:"required"`
-	Password   string `json:"password" binding:"required"`
+	Password   string `json:"password"`
 	IsAdmin    bool   `json:"is_admin"`
 	IsBanned   bool   `json:"is_banned"`
 	TelegramId string `json:"telegram_id"`
@@ -53,13 +56,19 @@ func Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if len(req.Password) < 4 {
+	if req.Password != "" && len(req.Password) < 4 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Parol kamida 4 ta belgidan iborat bo'lishi kerak"})
 		return
 	}
 	if usernameTaken(req.Username, 0) {
 		c.JSON(http.StatusConflict, gin.H{"error": "Bu username allaqachon mavjud"})
 		return
+	}
+
+	generatedPassword := ""
+	if req.Password == "" {
+		generatedPassword = randomPassword(12)
+		req.Password = generatedPassword
 	}
 
 	hash, err := auth.HashPassword(req.Password)
@@ -80,7 +89,30 @@ func Create(c *gin.Context) {
 		return
 	}
 
+	if generatedPassword != "" {
+		c.JSON(http.StatusCreated, gin.H{
+			"user":               services.NewProfileResponse(user),
+			"generated_password": generatedPassword,
+		})
+		return
+	}
+
 	c.JSON(http.StatusCreated, services.NewProfileResponse(user))
+}
+
+// randomPassword kriptografik xavfsiz tasodifiy parol yaratadi.
+func randomPassword(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		n, err := crand.Int(crand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			b[i] = charset[i%len(charset)]
+			continue
+		}
+		b[i] = charset[n.Int64()]
+	}
+	return string(b)
 }
 
 // Update PUT va PATCH uchun ishlatiladi — faqat yuborilgan maydonlarni yangilaydi.

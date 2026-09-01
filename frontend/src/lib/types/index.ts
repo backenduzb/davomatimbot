@@ -91,3 +91,16 @@ export interface LoginResponse {
 export interface ApiError {
   error: string;
 }
+
+export interface ImportResult {
+  rows_processed: number;
+  students_created: number;
+  students_linked: number;
+  classes_created: number;
+  class_names_created: number;
+}
+
+export interface ImportResponse {
+  message: string;
+  result: ImportResult;
+}
