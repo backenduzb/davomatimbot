@@ -176,6 +176,7 @@ export default {
   students: {
     full_name: "F.I.SH",
     class: "Sinf",
+    show_all: "Barcha o'quvchilar",
   },
   classes: {
     class_name: "Sinf nomi",

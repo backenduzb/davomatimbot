@@ -165,6 +165,7 @@ export default {
   students: {
     full_name: "Full name",
     class: "Class",
+    show_all: "All students",
   },
   classes: {
     class_name: "Class name",

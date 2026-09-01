@@ -169,6 +169,11 @@ export default {
     classes_created: "Jańa klasslar",
     class_names_created: "Jańa klass atları",
   },
+  students: {
+    full_name: "F.I.SH",
+    class: "Klass",
+    show_all: "Barlıq oqıwshılar",
+  },
   months: {
     "1": "Yanvar",
     "2": "Fevral",

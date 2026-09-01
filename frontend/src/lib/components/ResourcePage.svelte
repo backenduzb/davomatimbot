@@ -12,6 +12,7 @@
     export let columns: Column[] = [];
     export let formFields: Field[] = [];
     export let filters: Filter[] = [];
+    export let initialFilterValues: Record<string, string> = {};
 
     let items: any[] = [];
     let filteredItems: any[] = [];
@@ -41,6 +42,7 @@
     };
 
     onMount(async () => {
+        filterValues = { ...initialFilterValues };
         await loadOptions();
         await loadItems();
     });
@@ -417,15 +419,32 @@
                                         <td
                                             class="px-4 py-3 text-slate-700 dark:text-slate-200"
                                         >
-                                            {col.formatter
-                                                ? col.formatter(
-                                                      item[col.key],
-                                                      item,
-                                                  )
-                                                : renderValue(
-                                                      item[col.key],
-                                                      col.key,
-                                                  )}
+                                            {#if col.link}
+                                                <a
+                                                    href={col.link(item)}
+                                                    class="text-blue-600 dark:text-blue-400 hover:underline"
+                                                >
+                                                    {col.formatter
+                                                        ? col.formatter(
+                                                              item[col.key],
+                                                              item,
+                                                          )
+                                                        : renderValue(
+                                                              item[col.key],
+                                                              col.key,
+                                                          )}
+                                                </a>
+                                            {:else if col.formatter}
+                                                {col.formatter(
+                                                    item[col.key],
+                                                    item,
+                                                )}
+                                            {:else}
+                                                {renderValue(
+                                                    item[col.key],
+                                                    col.key,
+                                                )}
+                                            {/if}
                                         </td>
                                     {/each}
                                     <td

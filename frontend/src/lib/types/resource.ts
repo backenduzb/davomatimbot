@@ -3,6 +3,7 @@ export type Column = {
   label?: string;
   labelKey?: string;
   formatter?: (value: unknown, row: Record<string, unknown>) => string;
+  link?: (row: Record<string, unknown>) => string;
 };
 
 export type Field = {

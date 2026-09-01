@@ -170,6 +170,11 @@ export default {
     classes_created: "Новые классы",
     class_names_created: "Новые названия классов",
   },
+  students: {
+    full_name: "Ф.И.О",
+    class: "Класс",
+    show_all: "Все ученики",
+  },
   months: {
     "1": "Январь",
     "2": "Февраль",

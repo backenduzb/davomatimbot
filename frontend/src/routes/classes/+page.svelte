@@ -17,6 +17,8 @@
             labelKey: "classes.class_name",
             formatter: (value: unknown) =>
                 classNames.find((n) => n.id === value)?.name ?? String(value ?? ""),
+            link: (row: Record<string, unknown>) =>
+                `/students?class_id=${row.id}`,
         },
         { key: "teacher_full_name", labelKey: "classes.teacher" },
         { key: "teacher_telegram_id", labelKey: "classes.telegram_id" },
