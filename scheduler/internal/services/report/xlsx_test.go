@@ -80,8 +80,8 @@ func TestGenerateXLSXContents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPanes: %v", err)
 	}
-	if panes == nil || !panes.Freeze || panes.YSplit != 1 || panes.TopLeftCell != "A2" {
-		t.Errorf("panes = %+v, want frozen top row", panes)
+	if !panes.Freeze || panes.YSplit != 1 || panes.TopLeftCell != "A2" {
+		t.Errorf("panes = %+v, want frozen top row (YSplit=1, TopLeftCell=A2)", panes)
 	}
 }
 
