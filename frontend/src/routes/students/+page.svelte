@@ -1,8 +1,10 @@
 <script lang="ts">
+    import { onMount } from "svelte";
     import { page } from "$app/stores";
     import ResourcePage from "$lib/components/ResourcePage.svelte";
     import type { Column, Field } from "$lib/types/resource";
     import { classesApi, classNamesApi } from "$lib/api/classes";
+    import type { Class, ClassName } from "$lib/types";
     import { t } from "$lib/i18n";
 
     const columns: Column[] = [
@@ -11,45 +13,52 @@
         { key: "class_id", labelKey: "students.class" },
     ];
 
-    const formFields: Field[] = [
+    let classes: Class[] = [];
+    let classNames: ClassName[] = [];
+    let ready = false;
+    let className = "";
+
+    $: classId = $page.url.searchParams.get("class_id") ?? "";
+
+    // Sinf nomini sinf ID orqali topamiz (Class -> ClassName bog'lanishi).
+    function classLabel(cls: Class): string {
+        const name = classNames.find((n) => n.id === cls.class_name_id);
+        return name?.name ?? `#${cls.id}`;
+    }
+
+    $: {
+        const cls = classId
+            ? classes.find((c) => c.id === Number(classId))
+            : undefined;
+        className = cls ? classLabel(cls) : classId ? `#${classId}` : "";
+    }
+
+    // "Sinf" maydoni: ko'rinadigan nom — sinf nomi, qiymat — backend
+    // talab qiladigan class ID.
+    $: formFields = [
         { key: "full_name", labelKey: "students.full_name", type: "text", required: true },
         {
             key: "class_id",
             labelKey: "students.class",
             type: "select",
             required: true,
-            optionsEndpoint: "classes",
-            optionLabel: "teacher_full_name",
-            optionValue: "id",
+            options: classes.map((c) => ({ label: classLabel(c), value: c.id })),
         },
-    ];
+    ] satisfies Field[];
 
-    let classId = "";
-    let className = "";
-
-    $: classId = $page.url.searchParams.get("class_id") ?? "";
-
-    async function resolveClassName() {
-        if (!classId) {
-            className = "";
-            return;
-        }
+    onMount(async () => {
         try {
-            const [classes, names] = await Promise.all([
+            [classes, classNames] = await Promise.all([
                 classesApi.getAll(),
                 classNamesApi.getAll(),
             ]);
-            const cls = classes.find((c) => c.id === Number(classId));
-            if (cls) {
-                const name = names.find((n) => n.id === cls.class_name_id);
-                className = name?.name ?? `#${classId}`;
-            }
         } catch {
-            className = `#${classId}`;
+            // Ro'yxat yuklanmasa ham sahifa ishlaydi; sinf nomlari ID
+            // ko'rinishida (#id) ko'rsatiladi.
+        } finally {
+            ready = true;
         }
-    }
-
-    $: if (classId) resolveClassName();
+    });
 </script>
 
 <div class="space-y-4">
@@ -69,13 +78,19 @@
         </div>
     {/if}
 
-    {#key classId}
-        <ResourcePage
-            titleKey="nav.students"
-            endpoint="students"
-            {columns}
-            {formFields}
-            initialFilterValues={{ class_id: classId }}
-        />
-    {/key}
+    {#if ready}
+        {#key classId}
+            <ResourcePage
+                titleKey="nav.students"
+                endpoint="students"
+                {columns}
+                {formFields}
+                initialFilterValues={{ class_id: classId }}
+            />
+        {/key}
+    {:else}
+        <div class="p-6 text-sm text-slate-500">
+            {$t("common.loading")}
+        </div>
+    {/if}
 </div>

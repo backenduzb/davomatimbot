@@ -19,7 +19,6 @@
     let loading = true;
     let saving = false;
     let errorKey = "";
-    let form: Record<string, any> = {};
     let editingId: number | null = null;
     let search = "";
     let searchDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -141,10 +140,48 @@
         }
     }
 
+    // initialFormValues boshlang'ich forma qiymatlarini qaytaradi.
+    // "create" rejimida filter orqali tanlangan qiymat (masalan, sinf sahifasidan
+    // otilgan class_id) mos select maydoniga avtomatik qo'yiladi.
+    function initialFormValues(): Record<string, any> {
+        const initial: Record<string, any> = {};
+        formFields.forEach((f) => {
+            if (f.type === "file") {
+                initial[f.key] = null;
+                return;
+            }
+            if (f.type === "select") {
+                const filtered = initialFilterValues[f.key];
+                if (filtered !== undefined && filtered !== "") {
+                    const opt = (f.options ?? []).find(
+                        (o) => String(o.value) === String(filtered),
+                    );
+                    initial[f.key] = opt ? opt.value : filtered;
+                }
+            }
+        });
+        return initial;
+    }
+
+    // toPayloadValue maydon qiymatini backend sxemasiga mos turlarga keltiradi.
+    // DOM <select> qiymat string qaytaradi, lekin backend (masalan, class_id)
+    // son kutadi — optionning asl tipi (number) saqlanib qolishi kerak.
+    function toPayloadValue(field: Field, value: any): any {
+        if (field.type === "select") {
+            const opt = (selectOptions[field.key] ?? []).find(
+                (o) => String(o.value) === String(value),
+            );
+            if (opt && typeof opt.value === "number") return opt.value;
+        }
+        return value;
+    }
+
     function resetForm() {
-        form = {};
+        form = initialFormValues();
         editingId = null;
     }
+
+    let form: Record<string, any> = initialFormValues();
 
     function startEdit(item: any) {
         form = { ...item };
@@ -164,7 +201,7 @@
         errorKey = "";
         try {
             const method = editingId ? "PATCH" : "POST";
-            const url = editingId ? `${endpoint}${editingId}/` : endpoint;
+            const url = editingId ? `${endpoint}/${editingId}` : endpoint;
             const hasFile = formFields.some((f) => f.type === "file");
 
             if (hasFile) {
@@ -192,7 +229,7 @@
                 const payload: Record<string, any> = {};
                 formFields.forEach((f) => {
                     if (form[f.key] === undefined || form[f.key] === "") return;
-                    payload[f.key] = form[f.key];
+                    payload[f.key] = toPayloadValue(f, form[f.key]);
                 });
                 const res = await apiFetch(url, {
                     method,
@@ -219,7 +256,7 @@
         if (!itemToDelete) return;
         deleteConfirmOpen = false;
         try {
-            const res = await apiFetch(`${endpoint}${itemToDelete.id}/`, {
+            const res = await apiFetch(`${endpoint}/${itemToDelete.id}`, {
                 method: "DELETE",
             });
             if (!res.ok) throw new Error("delete_failed");
