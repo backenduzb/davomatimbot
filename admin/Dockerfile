@@ -1,6 +1,8 @@
-FROM golang:1.26-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
+
+COPY go.mod go.sum* ./
 RUN go mod download
 
 COPY . .
@@ -11,8 +13,7 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 COPY --from=builder /app/main .
-# COPY .env.example .env
 
 EXPOSE 8000
 
-CMD ["main"]
+CMD ["./main"]
