@@ -1,0 +1,25 @@
+services:
+  admin:
+    image: ghcr.io/backenduzb/admin:latest # O'zingizning GHCR image yo'lingiz
+    container_name: edavomat_admin
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.admin
+    network_mode: "host" # VPS'dagi local Postgres (5432) bilan to'g'ridan-to'g'ri bog'lanish uchun
+
+  gobot:
+    image: ghcr.io/backenduzb/gobot:latest # O'zingizning GHCR image yo'lingiz
+    container_name: edavomat_gobot
+    restart: always
+    env_file:
+      - .env.gobot
+    network_mode: "host"
+  gobot:
+    image: ghcr.io/backenduzb/scheduler:latest # O'zingizning GHCR image yo'lingiz
+    container_name: edavomat_gobot
+    restart: always
+    env_file:
+      - .env.scheduler
+    network_mode: "host"
