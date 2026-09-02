@@ -6,8 +6,6 @@ import (
 	"scheduler/internal/database"
 )
 
-// ReportRow — kunlik hisobotdagi bitta qator: sinf nomi, o'quvchi F.I.Sh,
-// sana, davomat holati va sabab.
 type ReportRow struct {
 	ClassName string
 	Student   string
@@ -16,20 +14,9 @@ type ReportRow struct {
 	Reason    string
 }
 
-// ListForDate berilgan sanadagi barcha davomat yozuvlarini sinf va o'quvchi
-// nomlari bilan birga qaytaradi (sinf nomi bo'yicha, so'ng ism bo'yicha
-// tartiblangan).
-//
-// Ilova modeli soft-delete (gorm.Model) ishlatgani uchun o'chirilgan
-// o'quvchi/sinf yozuvlari hisobotga kirib kirmasligi uchun deleted_at
-// shartlari qo'shilgan — admin interfeysidagi ro'yxatlar bilan bir xil
-// xulosa.
 func ListForDate(date time.Time) ([]ReportRow, error) {
 	var rows []ReportRow
 
-	// Sana string literal (YYYY-MM-DD) sifatida beriladi: Postgres'da
-	// timestamptz -> date qayta o'zgartirish sessiya soat sohasiga
-	// bog'liq bo'lib, kunning bir kun siljishiga olib kelishi mumkin.
 	err := database.DB.
 		Table("attendances a").
 		Select("cn.name AS class_name, s.full_name AS student, a.date AS date, a.status AS status, a.reason AS reason").

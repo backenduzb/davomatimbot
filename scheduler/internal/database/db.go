@@ -14,7 +14,6 @@ import (
 
 var DB *gorm.DB
 
-// Connect admin/ va gobot/ xizmatlaridagi DB ulanish naqshini takrorlaydi.
 func Connect(dsn string) {
 	newLogger := logger.New(
 		log.New(os.Stdout, "\r\n", log.LstdFlags),
@@ -33,9 +32,6 @@ func Connect(dsn string) {
 		log.Fatal("DB connections error", err)
 	}
 
-	// Ilova jadvalari allaqachon admin/gobot tomonidan yaratilgan bo'ladi;
-	// AutoMigrate ularga o'zgarish kiritmaydi (faqat yetishmayotgan
-	// scheduler_states jadvalini yaratadi).
 	db.AutoMigrate(
 		&models.ClassName{},
 		&models.Class{},

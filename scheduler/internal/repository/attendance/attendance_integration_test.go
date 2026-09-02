@@ -13,9 +13,6 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// TestListForDateIntegration — PostgreSQL bilan to'liq integratsiya
-// sinovi. DATABASE_URL o'rnatilmagan bo'lsa (masalan, lokalda), o'tkazib
-// yuboriladi; CI'da postgres servisi bilan ishlaydi.
 func TestListForDateIntegration(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -29,7 +26,6 @@ func TestListForDateIntegration(t *testing.T) {
 		t.Fatalf("DB ulanish: %v", err)
 	}
 
-	// Repository global database.DB dan foydalanadi.
 	oldDB := database.DB
 	database.DB = db
 	defer func() { database.DB = oldDB }()
@@ -41,7 +37,6 @@ func TestListForDateIntegration(t *testing.T) {
 	}
 
 	reportDate := time.Date(2020, 1, 15, 0, 0, 0, 0, time.UTC)
-	// Unikal nomlar — testlarni qayta ishlashda to'qnashuv bo'lmasligi uchun.
 	suffix := time.Now().Format("20060102150405")
 	className := "CI-TEST-" + suffix
 
@@ -79,8 +74,6 @@ func TestListForDateIntegration(t *testing.T) {
 	if err := db.Create(&records).Error; err != nil {
 		t.Fatalf("Attendance yaratish: %v", err)
 	}
-
-	// Toza chiqish: test yozuvlarini hard delete qilamiz.
 	defer func() {
 		db.Unscoped().Delete(&records, "student_id IN ?", []uint{stA.ID, stB.ID})
 		db.Unscoped().Delete(&[]models.Student{stA, stB})
@@ -93,7 +86,6 @@ func TestListForDateIntegration(t *testing.T) {
 		t.Fatalf("ListForDate: %v", err)
 	}
 
-	// Boshqa test yozuvlari bo'lishi mumkin — faqat bizniki izlaymiz.
 	var mine []ReportRow
 	for _, r := range rows {
 		if r.ClassName == className {
@@ -114,7 +106,6 @@ func TestListForDateIntegration(t *testing.T) {
 		t.Errorf("sinf nomi = %q, want %q", mine[0].ClassName, className)
 	}
 
-	// Boshqa sana — bo'sh.
 	otherRows, err := ListForDate(time.Date(2020, 1, 16, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("ListForDate (boshqa sana): %v", err)
@@ -126,8 +117,6 @@ func TestListForDateIntegration(t *testing.T) {
 	}
 }
 
-// TestListForDateSoftDeleted — soft-delete qilingan o'quvchi hisobotga
-// kirib kirmasligi kerak.
 func TestListForDateSoftDeleted(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -184,7 +173,6 @@ func TestListForDateSoftDeleted(t *testing.T) {
 		db.Unscoped().Delete(&cn)
 	}()
 
-	// O'quvchi soft-delete qilinadi — yozuv qoladi, lekin hisobotda bo'lmasi kerak.
 	if err := db.Delete(&st).Error; err != nil {
 		t.Fatalf("soft delete: %v", err)
 	}

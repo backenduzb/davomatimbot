@@ -3,7 +3,7 @@ import { browser } from "$app/environment";
 import type { PaginatedResponse } from "$lib/types";
 
 export const API_BASE_URL = (
-  import.meta.env.PUBLIC_API_URL ?? "http://localhost:8000"
+  import.meta.env.PUBLIC_API_URL ?? "http://34.134.26.219:8000"
 ).replace(/\/$/, "");
 
 const API_URL = `${API_BASE_URL}/api`;
