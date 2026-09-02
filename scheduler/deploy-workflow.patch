@@ -1,0 +1,30 @@
+commit 0dc1796c3f76a6d5257a9043f1ec433f6f3bc921
+Author: backenduzb <138774988+backenduzb@users.noreply.github.com>
+Date:   Wed Sep 2 17:01:56 2026 +0000
+
+    Add scheduler service image to deployment workflow (latest + sha tags)
+    
+    Co-authored-by: arena-agent <297053741+arena-agent@users.noreply.github.com>
+
+diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
+index 6d84ee1..9ea629d 100644
+--- a/.github/workflows/deploy.yml
++++ b/.github/workflows/deploy.yml
+@@ -47,4 +47,14 @@ jobs:
+           push: true
+           tags: |
+             ghcr.io/${{ steps.owner.outputs.OWNER }}/gobot:latest
+-            ghcr.io/${{ steps.owner.outputs.OWNER }}/gobot:${{ github.sha }}
+\ No newline at end of file
++            ghcr.io/${{ steps.owner.outputs.OWNER }}/gobot:${{ github.sha }}
++
++      - name: Build and push Scheduler Service
++        uses: docker/build-push-action@v5
++        with:
++          context: ./scheduler
++          file: ./scheduler/Dockerfile
++          push: true
++          tags: |
++            ghcr.io/${{ steps.owner.outputs.OWNER }}/scheduler:latest
++            ghcr.io/${{ steps.owner.outputs.OWNER }}/scheduler:${{ github.sha }}
+\ No newline at end of file
