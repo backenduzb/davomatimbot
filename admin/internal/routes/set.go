@@ -6,6 +6,7 @@ import (
 	importerHandlers "admin/internal/handlers/importer"
 	studentsHandlers "admin/internal/handlers/students"
 	usersHandlers "admin/internal/handlers/users"
+	promotionHandlers "admin/internal/handlers/promotion"
 	statisticsHandlers "admin/internal/handlers/statistics"
 	"admin/internal/middleware/auth"
 	"admin/internal/models"
@@ -61,6 +62,13 @@ func SetupAuthRoutes(r *gin.Engine, db *gorm.DB) {
 		auth.AuthMiddleware(),
 		handlers.Profile,
 	)
+
+	// Sinflarni keyingi o'quv yiliga oshirish (8-sinf -> 9-sinf ...).
+	// Preview — nima o'zgarishini ko'rsatadi, Promote — amalni bajaradi.
+	// Diqqat: "/classes/..." ostiga qo'yib bo'lmaydi, chunki GET /classes/:id
+	// wildcard'i bilan to'qnashadi (gin ishga tushishda panic beradi).
+	api.GET("/class-promotion/preview", auth.AuthMiddleware(), promotionHandlers.Preview)
+	api.POST("/class-promotion", auth.AuthMiddleware(), promotionHandlers.Promote)
 
 	api.GET("/statistics/today",
 		auth.AuthMiddleware(),

@@ -54,3 +54,46 @@ export const classNamesApi = {
     return apiRequest<void>(`class/names/${id}`, { method: "DELETE" });
   },
 };
+
+// --- Sinflarni keyingi o'quv yiliga oshirish ---
+
+export type PromotionAction = "promote" | "graduate" | "skip";
+
+export type PromotionPlan = {
+  class_id: number;
+  current_name: string;
+  next_name: string;
+  action: PromotionAction;
+  student_count: number;
+  reason?: string;
+};
+
+export type PromotionPreview = {
+  plans: PromotionPlan[];
+  promote: number;
+  graduate: number;
+  skip: number;
+  total: number;
+};
+
+export type PromotionResult = {
+  promoted: number;
+  graduated: number;
+  skipped: number;
+  class_names_created: number;
+};
+
+export const classPromotionApi = {
+  // preview — hech narsani o'zgartirmaydi, faqat rejani qaytaradi.
+  preview() {
+    return apiRequest<PromotionPreview>("class-promotion/preview");
+  },
+
+  // promote — tasdiqlangandan keyin amalni bajaradi.
+  promote() {
+    return apiRequest<PromotionResult>("class-promotion", {
+      method: "POST",
+      body: JSON.stringify({ confirm: true }),
+    });
+  },
+};

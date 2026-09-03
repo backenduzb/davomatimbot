@@ -227,25 +227,30 @@ func FormatAdminOverviewMessage(stats TodayOverview) string {
 	b.WriteString("\n———————————————\n")
 	b.WriteString("🏫 <b>SINFLAR KESIMIDA</b>\n")
 
-	if len(stats.Classes) == 0 {
-		b.WriteString("\n — Sinflar topilmadi\n")
-	}
+	// Faqat e'tibor talab qiladigan sinflar ko'rsatiladi: kelmagan, sababli
+	// yoki kech kelgan o'quvchisi bor sinflar. Hammasi kelgan yoki davomat
+	// topshirilmagan sinflar ro'yxatni uzaytirmasligi uchun chiqarilmaydi.
+	shown := 0
+	notSubmitted := 0
 
 	for _, cls := range stats.Classes {
+		if cls.Present+cls.Absent+cls.Excused+cls.Late == 0 {
+			notSubmitted++
+			continue
+		}
+
+		// Muammosiz sinf — hamma kelgan.
+		if len(cls.Unexcused) == 0 && len(cls.ExcusedList) == 0 && len(cls.LateList) == 0 {
+			continue
+		}
+
+		shown++
+
 		fmt.Fprintf(&b, "\n<b>%s</b>", cls.ClassName)
 		if cls.TeacherName != "" && cls.TeacherName != "-" {
 			fmt.Fprintf(&b, " <i>(%s)</i>", cls.TeacherName)
 		}
 		b.WriteString("\n")
-
-		// Hali davomat topshirilmagan sinflarni alohida belgilaymiz.
-		if cls.Present+cls.Absent+cls.Excused+cls.Late == 0 {
-			fmt.Fprintf(&b, "   👥 %d ta o'quvchi — ⚠️ davomat topshirilmagan\n", cls.TotalStudents)
-			continue
-		}
-
-		fmt.Fprintf(&b, "   👥 %d | ✅ %d | 🚫 %d | 📝 %d | ⏰ %d | ❔ %d\n",
-			cls.TotalStudents, cls.Present, cls.Absent, cls.Excused, cls.Late, cls.NotMarked)
 
 		if len(cls.Unexcused) > 0 {
 			b.WriteString("   🚫 <b>Sababsiz:</b>\n")
@@ -271,6 +276,14 @@ func FormatAdminOverviewMessage(stats TodayOverview) string {
 				fmt.Fprintf(&b, "      • %s\n", student.Name)
 			}
 		}
+	}
+
+	if shown == 0 {
+		b.WriteString("\n✅ Kelmagan yoki kech kelgan o'quvchilar yo'q\n")
+	}
+
+	if notSubmitted > 0 {
+		fmt.Fprintf(&b, "\n⚠️ Davomat topshirilmagan sinflar: <b>%d</b> ta\n", notSubmitted)
 	}
 
 	b.WriteString("\n———————————————\n")
