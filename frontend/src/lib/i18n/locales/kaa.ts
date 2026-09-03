@@ -68,6 +68,8 @@ export default {
     delete_failed: "Óshiriwde qátelik",
     delete_confirm: "Óshiriwdi tastıyıqlaysızba?",
     delete_warning: "Bul maǵlıwmattı óshiriwdi tastıyıqlaysızba?",
+    edit_name: "Atamanı ózgertiw",
+    edit_name_hint: "Saylaw qulıplandı — atamanı ózgertip, Saqlaw tuymesin basıń.",
     select_all: "Barlıǵın belgilew",
     clear_selection: "Belgilewdi biykarlaw",
     delete_selected: "Belgilengenlerdi óshiriw",
@@ -175,6 +177,11 @@ export default {
     classes_created: "Jańa klasslar",
     class_names_created: "Jańa klass atları",
   },
+  classes: {
+    class_name: "Klass ataması",
+    edit_class_name: "Klass atamasın ózgertiw",
+  },
+
   students: {
     full_name: "F.I.SH",
     class: "Klass",

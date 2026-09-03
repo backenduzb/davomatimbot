@@ -68,6 +68,8 @@ export default {
     delete_failed: "Delete failed",
     delete_confirm: "Confirm deletion?",
     delete_warning: "Are you sure you want to delete this data?",
+    edit_name: "Edit name",
+    edit_name_hint: "Selection is locked — change the name and press Save.",
     select_all: "Select all",
     clear_selection: "Clear selection",
     delete_selected: "Delete selected",
@@ -174,6 +176,7 @@ export default {
     show_all: "All students",
   },
   classes: {
+    edit_class_name: "Edit class name",
     class_name: "Class name",
     teacher: "Teacher",
     telegram_id: "Telegram ID",

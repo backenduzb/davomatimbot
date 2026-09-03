@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onDestroy, onMount } from "svelte";
+    import { createEventDispatcher, onDestroy, onMount } from "svelte";
     import { apiFetch, fetchAllResults, API_BASE_URL } from "$lib/api";
     import { t } from "$lib/i18n";
     import type { Column, Field, Filter } from "$lib/types/resource";
@@ -38,6 +38,90 @@
         { label?: string; labelKey?: string; value: string | number }[]
     > = {};
 
+    const dispatch = createEventDispatcher();
+
+    // Select maydonidagi tanlangan yozuvni (masalan sinf nomini) shu sahifadan
+    // tahrirlash holati: galochka + input qiymati.
+    let optionEdit: Record<string, { enabled: boolean; value: string }> = {};
+    let optionEditSaving = false;
+
+    function currentOptionLabel(field: Field): string {
+        const value = form[field.key];
+        if (value === undefined || value === null || value === "") return "";
+        const opt = (selectOptions[field.key] ?? []).find(
+            (o) => String(o.value) === String(value),
+        );
+        return opt ? labelFor(opt.label, opt.labelKey) : "";
+    }
+
+    function ensureOptionEdit(field: Field) {
+        if (!optionEdit[field.key]) {
+            optionEdit[field.key] = { enabled: false, value: "" };
+        }
+        return optionEdit[field.key];
+    }
+
+    // Select qiymati o'zgarganda input default holatda o'sha tanlangan
+    // yozuvning joriy nomini ko'rsatib turadi.
+    function syncOptionEditValue(field: Field) {
+        const state = ensureOptionEdit(field);
+        if (!state.enabled) {
+            state.value = currentOptionLabel(field);
+            optionEdit = { ...optionEdit };
+        }
+    }
+
+    function toggleOptionEdit(field: Field, enabled: boolean) {
+        const state = ensureOptionEdit(field);
+        state.enabled = enabled;
+        if (enabled && !state.value) {
+            state.value = currentOptionLabel(field);
+        }
+        if (!enabled) {
+            state.value = currentOptionLabel(field);
+        }
+        optionEdit = { ...optionEdit };
+    }
+
+    // saveOptionEdits galochka yoqilgan select maydonlari uchun bog'liq
+    // yozuvni (class/names/{id} kabi) PATCH qiladi.
+    async function saveOptionEdits(): Promise<boolean> {
+        const targets = formFields.filter(
+            (f) =>
+                f.type === "select" &&
+                f.editableOption &&
+                optionEdit[f.key]?.enabled &&
+                (optionEdit[f.key]?.value ?? "").trim() !== "",
+        );
+        if (!targets.length) return true;
+
+        optionEditSaving = true;
+        try {
+            for (const field of targets) {
+                const cfg = field.editableOption!;
+                const id = form[field.key];
+                if (id === undefined || id === null || id === "") continue;
+                const key = cfg.field ?? "name";
+                const newValue = optionEdit[field.key].value.trim();
+                if (newValue === currentOptionLabel(field)) continue;
+                const res = await apiFetch(`${cfg.endpoint}/${id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ [key]: newValue }),
+                });
+                if (!res.ok) throw new Error("option_save_failed");
+            }
+            await loadOptions();
+            selectOptions = { ...selectOptions };
+            dispatch("optionsUpdated");
+            return true;
+        } catch {
+            errorKey = "common.save_failed";
+            return false;
+        } finally {
+            optionEditSaving = false;
+        }
+    }
+
     const labelFor = (label?: string, labelKey?: string) => {
         if (labelKey) return $t(labelKey);
         return label ?? "";
@@ -46,6 +130,7 @@
     onMount(async () => {
         filterValues = { ...initialFilterValues };
         await loadOptions();
+        resetOptionEdits();
         await loadItems();
     });
 
@@ -182,6 +267,23 @@
     function resetForm() {
         form = initialFormValues();
         editingId = null;
+        resetOptionEdits();
+    }
+
+    function resetOptionEdits() {
+        const next: Record<string, { enabled: boolean; value: string }> = {};
+        formFields.forEach((f) => {
+            if (f.type === "select" && f.editableOption) {
+                next[f.key] = { enabled: false, value: "" };
+            }
+        });
+        optionEdit = next;
+        formFields.forEach((f) => {
+            if (f.type === "select" && f.editableOption) {
+                optionEdit[f.key].value = currentOptionLabel(f);
+            }
+        });
+        optionEdit = { ...optionEdit };
     }
 
     let form: Record<string, any> = initialFormValues();
@@ -196,6 +298,7 @@
             }
         });
         editingId = item.id;
+        resetOptionEdits();
     }
 
     async function submitForm(e?: Event) {
@@ -203,6 +306,10 @@
         saving = true;
         errorKey = "";
         try {
+            // Avval bog'liq yozuv nomlari (masalan sinf nomi) yangilanadi.
+            const optionsOk = await saveOptionEdits();
+            if (!optionsOk) return;
+
             const method = editingId ? "PATCH" : "POST";
             const url = editingId ? `${endpoint}/${editingId}` : endpoint;
             const hasFile = formFields.some((f) => f.type === "file");
@@ -706,9 +813,14 @@
 
                         {#if field.type === "select"}
                             <select
-                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 disabled:opacity-60 disabled:cursor-not-allowed"
                                 bind:value={form[field.key]}
                                 required={field.required}
+                                disabled={!!field.editableOption &&
+                                    optionEdit[field.key]?.enabled}
+                                on:change={() =>
+                                    field.editableOption &&
+                                    syncOptionEditValue(field)}
                             >
                                 <option value="" disabled selected
                                     >{$t("common.select_placeholder")}</option
@@ -722,6 +834,71 @@
                                     >
                                 {/each}
                             </select>
+
+                            {#if field.editableOption}
+                                <div class="space-y-2 pt-1">
+                                    <input
+                                        type="text"
+                                        class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                                        placeholder={field.editableOption
+                                            .inputLabelKey
+                                            ? $t(
+                                                  field.editableOption
+                                                      .inputLabelKey,
+                                              )
+                                            : (field.editableOption
+                                                  .inputLabel ??
+                                              $t("common.name"))}
+                                        disabled={!optionEdit[field.key]
+                                            ?.enabled ||
+                                            !form[field.key]}
+                                        value={optionEdit[field.key]?.value ??
+                                            ""}
+                                        on:input={(e) => {
+                                            ensureOptionEdit(field);
+                                            optionEdit[field.key].value = (
+                                                e.currentTarget as HTMLInputElement
+                                            ).value;
+                                            optionEdit = { ...optionEdit };
+                                        }}
+                                    />
+                                    <label
+                                        class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            class="accent-blue-600 h-4 w-4"
+                                            checked={optionEdit[field.key]
+                                                ?.enabled ?? false}
+                                            disabled={!form[field.key]}
+                                            on:change={(e) =>
+                                                toggleOptionEdit(
+                                                    field,
+                                                    (
+                                                        e.currentTarget as HTMLInputElement
+                                                    ).checked,
+                                                )}
+                                        />
+                                        <span>
+                                            {field.editableOption.toggleLabelKey
+                                                ? $t(
+                                                      field.editableOption
+                                                          .toggleLabelKey,
+                                                  )
+                                                : (field.editableOption
+                                                      .toggleLabel ??
+                                                  $t("common.edit_name"))}
+                                        </span>
+                                    </label>
+                                    {#if optionEdit[field.key]?.enabled}
+                                        <p
+                                            class="text-[11px] text-amber-600 dark:text-amber-400"
+                                        >
+                                            {$t("common.edit_name_hint")}
+                                        </p>
+                                    {/if}
+                                </div>
+                            {/if}
                         {:else if field.type === "checkbox"}
                             <label
                                 class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200"

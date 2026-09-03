@@ -78,6 +78,8 @@ export default {
     delete_failed: "O'chirishda xato",
     delete_confirm: "O'chirishni tasdiqlaysizmi?",
     delete_warning: "Ushbu ma'lumotni o'chirishni tasdiqlaysizmi?",
+    edit_name: "Nomini tahrirlash",
+    edit_name_hint: "Tanlov qulflandi — nomni o'zgartirib, Saqlash tugmasini bosing.",
     select_all: "Barchasini tanlash",
     clear_selection: "Tanlovni bekor qilish",
     delete_selected: "Tanlanganlarni o'chirish",
@@ -185,6 +187,7 @@ export default {
     show_all: "Barcha o'quvchilar",
   },
   classes: {
+    edit_class_name: "Sinf nomini tahrirlash",
     class_name: "Sinf nomi",
     teacher: "O'qituvchi",
     telegram_id: "Telegram ID",

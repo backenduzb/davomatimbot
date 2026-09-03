@@ -68,6 +68,8 @@ export default {
     delete_failed: "Ошибка удаления",
     delete_confirm: "Подтвердите удаление?",
     delete_warning: "Вы уверены, что хотите удалить эти данные?",
+    edit_name: "Изменить название",
+    edit_name_hint: "Выбор заблокирован — измените название и нажмите Сохранить.",
     select_all: "Выбрать все",
     clear_selection: "Снять выделение",
     delete_selected: "Удалить выбранные",
@@ -176,6 +178,11 @@ export default {
     classes_created: "Новые классы",
     class_names_created: "Новые названия классов",
   },
+  classes: {
+    class_name: "Название класса",
+    edit_class_name: "Изменить название класса",
+  },
+
   students: {
     full_name: "Ф.И.О",
     class: "Класс",
