@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"admin/internal/database"
 	"admin/internal/models"
@@ -14,6 +15,7 @@ import (
 	"admin/internal/services/auth"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CreateRequest — yangi foydalanuvchi yaratish uchun so'rov.
@@ -194,12 +196,30 @@ func List(c *gin.Context) {
 		params.PageSize = 10
 	}
 
+	// Qidiruv (username / telegram_id bo'yicha) — frontenddagi qidiruv maydoni
+	// backendda filtrlanadi, shunda barcha yozuvlarni yuklash shart emas.
+	search := strings.TrimSpace(c.Query("search"))
+	baseQuery := func() *gorm.DB {
+		q := database.DB.Model(&models.User{})
+		if search != "" {
+			pattern := "%" + search + "%"
+			q = q.Where("username ILIKE ? OR telegram_id ILIKE ?", pattern, pattern)
+		}
+		return q
+	}
+
 	var count int64
-	database.DB.Model(&models.User{}).Count(&count)
+	if err := baseQuery().Count(&count).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
 	var users []models.User
 	offset := (params.Page - 1) * params.PageSize
-	database.DB.Order("id asc").Limit(params.PageSize).Offset(offset).Find(&users)
+	if err := baseQuery().Order("id asc").Limit(params.PageSize).Offset(offset).Find(&users).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
 	results := make([]response.ProfileResponse, 0, len(users))
 	for _, u := range users {
@@ -250,4 +270,58 @@ func Delete(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusNoContent, nil)
+}
+
+// BulkDeleteRequest — bir nechta foydalanuvchini bitta so'rovda o'chirish.
+type BulkDeleteRequest struct {
+	IDs []uint `json:"ids" binding:"required,min=1,max=5000"`
+}
+
+// BulkDelete tanlangan foydalanuvchilarni bitta SQL so'rovi bilan o'chiradi.
+// So'rovni yuborgan admin o'zini o'chirib qo'ymasligi uchun o'z ID'si
+// ro'yxatdan chiqarib tashlanadi.
+func BulkDelete(c *gin.Context) {
+	var req BulkDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var currentID uint
+	if v, ok := c.Get("user_id"); ok {
+		switch id := v.(type) {
+		case uint:
+			currentID = id
+		case int:
+			currentID = uint(id)
+		case float64:
+			currentID = uint(id)
+		}
+	}
+
+	seen := make(map[uint]struct{}, len(req.IDs))
+	ids := make([]uint, 0, len(req.IDs))
+	for _, id := range req.IDs {
+		if id == 0 || id == currentID {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+
+	if len(ids) == 0 {
+		c.JSON(http.StatusOK, gin.H{"deleted": 0})
+		return
+	}
+
+	tx := database.DB.Where("id IN ?", ids).Delete(&models.User{})
+	if tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": tx.Error.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"deleted": tx.RowsAffected})
 }

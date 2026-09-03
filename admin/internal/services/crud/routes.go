@@ -16,6 +16,8 @@ func RegisterCRUDRoutes[T any, S any, R any](router *gin.RouterGroup, path strin
 
     router.GET(path, middleware, ctrl.List)
     router.POST(path, middleware, ctrl.Create)
+    // Bir nechta yozuvni bitta so'rovda o'chirish (tezkor ommaviy o'chirish).
+    router.POST(path+"/bulk-delete", middleware, ctrl.BulkDelete)
     router.GET(path+"/:id", middleware, ctrl.Retrieve)
     router.PUT(path+"/:id", middleware, ctrl.Update)
     router.PATCH(path+"/:id", middleware, ctrl.PartialUpdate)

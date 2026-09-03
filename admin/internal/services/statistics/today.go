@@ -30,8 +30,16 @@ func GetTodayStatistics(db *gorm.DB, dateStr string) (*attendanceSchema.TodaySta
 		return nil, err
 	}
 
+	// Sinflar sinf nomi bo'yicha tartiblanadi — dashboard jadvali va
+	// diagrammalarda ular doim bir xil, tushunarli tartibda chiqadi.
 	var classes []models.Class
-	if err := db.Preload("ClassName").Find(&classes).Error; err != nil {
+	if err := db.Model(&models.Class{}).
+		Preload("ClassName").
+		Select("classes.*").
+		Joins("LEFT JOIN class_names ON class_names.id = classes.class_name_id").
+		Order("class_names.name ASC NULLS LAST").
+		Order("classes.id ASC").
+		Find(&classes).Error; err != nil {
 		return nil, err
 	}
 
@@ -58,6 +66,26 @@ func GetTodayStatistics(db *gorm.DB, dateStr string) (*attendanceSchema.TodaySta
 		countsByClass[row.ClassID][row.Status] = row.Count
 	}
 
+	// O'quvchilar sonini har bir sinf uchun alohida COUNT qilish o'rniga
+	// (N+1 muammosi — 100 ta sinf = 100 ta so'rov) bitta GROUP BY so'rovi
+	// bilan olamiz. Aynan shu joy dashboard statistikasini sekinlashtirardi.
+	type studentCountRow struct {
+		ClassID uint
+		Count   int64
+	}
+	var studentCountRows []studentCountRow
+	if err := db.Model(&models.Student{}).
+		Select("class_id, count(*) as count").
+		Where("deleted_at IS NULL").
+		Group("class_id").
+		Scan(&studentCountRows).Error; err != nil {
+		return nil, err
+	}
+	studentCountByClass := make(map[uint]int64, len(studentCountRows))
+	for _, row := range studentCountRows {
+		studentCountByClass[row.ClassID] = row.Count
+	}
+
 	result := &attendanceSchema.TodayStatistics{
 		Date:         date.Format("2006-01-02"),
 		TotalClasses: int64(len(classes)),
@@ -65,10 +93,7 @@ func GetTodayStatistics(db *gorm.DB, dateStr string) (*attendanceSchema.TodaySta
 	}
 
 	for _, class := range classes {
-		var studentCount int64
-		if err := db.Model(&models.Student{}).Where("class_id = ?", class.ID).Count(&studentCount).Error; err != nil {
-			return nil, err
-		}
+		studentCount := studentCountByClass[class.ID]
 
 		statusCounts := countsByClass[class.ID]
 		present := statusCounts[models.AttendancePresent]

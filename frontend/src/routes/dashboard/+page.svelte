@@ -11,6 +11,7 @@
 
     let data: TodayStatistics | null = null;
     let loading = true;
+    let inFlight = false;
     let error = "";
     let distributionChart: Chart | null = null;
     let comparisonChart: Chart | null = null;
@@ -30,7 +31,11 @@
     }
 
     async function loadData() {
-        if (loading) return;
+        // Diqqat: bu yerda "loading" bo'yicha tekshirish ishlatilmaydi, chunki
+        // loading boshlang'ich holatda true — aks holda birinchi yuklash umuman
+        // ishga tushmay, sahifa "Yuklanmoqda..." holatida qotib qolardi.
+        if (inFlight) return;
+        inFlight = true;
         loading = true;
         error = "";
         // Diqqat: loading=true bo'lganda canvas'lar DOM'dan olib tashlanadi,
@@ -44,11 +49,14 @@
             data = null;
         } finally {
             loading = false;
+            inFlight = false;
         }
         if (!data) return;
+        // Canvas'lar {#if loading} bloki ichida, shuning uchun grafiklar faqat
+        // loading=false bo'lib DOM yangilangandan keyin chiziladi.
         await tick();
         try {
-            await renderCharts();
+            renderCharts();
         } catch (e) {
             // Grafik chizishdagi muammo sahifa ma'lumotlarini yashirmasligi kerak.
             console.error("chart render failed", e);
@@ -62,7 +70,7 @@
         comparisonChart = null;
     }
 
-    async function renderCharts() {
+    function renderCharts() {
         if (!data || !distributionCanvas || !comparisonCanvas) return;
         destroyCharts();
 
@@ -201,7 +209,7 @@
     }
 
     onMount(() => {
-        loadData();
+        void loadData();
         return () => destroyCharts();
     });
 </script>

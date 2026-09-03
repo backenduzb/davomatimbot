@@ -31,6 +31,8 @@ func SetupAuthRoutes(r *gin.Engine, db *gorm.DB) {
 	api.PUT("/users/:id", auth.AuthMiddleware(), usersHandlers.Update)
 	api.PATCH("/users/:id", auth.AuthMiddleware(), usersHandlers.Update)
 	api.DELETE("/users/:id", auth.AuthMiddleware(), usersHandlers.Delete)
+	// Ommaviy o'chirish — bitta so'rovda ko'p foydalanuvchini o'chirish.
+	api.POST("/users/bulk-delete", auth.AuthMiddleware(), usersHandlers.BulkDelete)
 
 	crud.RegisterCRUDRoutes[
 		models.Class,
@@ -52,6 +54,8 @@ func SetupAuthRoutes(r *gin.Engine, db *gorm.DB) {
 	api.PUT("/students/:id", auth.AuthMiddleware(), studentsCtrl.Update)
 	api.PATCH("/students/:id", auth.AuthMiddleware(), studentsCtrl.PartialUpdate)
 	api.DELETE("/students/:id", auth.AuthMiddleware(), studentsCtrl.Delete)
+	// Ommaviy o'chirish: tanlangan o'quvchilar yoki butun sinf o'quvchilari.
+	api.POST("/students/bulk-delete", auth.AuthMiddleware(), studentsHandlers.BulkDelete)
 
 	api.GET("/me",
 		auth.AuthMiddleware(),

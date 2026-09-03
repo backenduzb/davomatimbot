@@ -417,26 +417,60 @@
         bulkDeleting = true;
         errorKey = "";
         const ids = [...selectedIds];
-        const failed: (string | number)[] = [];
         try {
-            for (const id of ids) {
-                try {
-                    const res = await apiFetch(`${endpoint}/${id}`, {
-                        method: "DELETE",
-                    });
-                    if (!res.ok) failed.push(id);
-                } catch {
-                    failed.push(id);
-                }
+            // Bitta so'rovda ommaviy o'chirish (backend: POST {endpoint}/bulk-delete).
+            // Ilgari har bir yozuv uchun alohida DELETE yuborilardi va bu
+            // yuzlab yozuvda juda sekin ishlardi.
+            const res = await apiFetch(`${endpoint}/bulk-delete`, {
+                method: "POST",
+                body: JSON.stringify({
+                    ids: ids.map((id) => Number(id)).filter((id) => !Number.isNaN(id)),
+                }),
+            });
+
+            if (res.ok) {
+                selectedIds = [];
+                await loadItems();
+                return;
             }
-            if (failed.length) {
-                errorKey = "common.delete_failed";
+
+            // Eski backend bulk endpointni bilmasa — bittalab o'chirishga qaytamiz.
+            if (res.status === 404 || res.status === 405) {
+                await fallbackBulkDelete(ids);
+                return;
             }
-            selectedIds = failed;
-            await loadItems();
+
+            errorKey = "common.delete_failed";
+        } catch {
+            errorKey = "common.delete_failed";
         } finally {
             bulkDeleting = false;
         }
+    }
+
+    // fallbackBulkDelete — bulk endpoint mavjud bo'lmaganda ishlatiladigan
+    // zaxira yo'l. So'rovlar parallel (bo'laklarga bo'lib) yuboriladi.
+    async function fallbackBulkDelete(ids: (string | number)[]) {
+        const failed: (string | number)[] = [];
+        const chunkSize = 8;
+        for (let i = 0; i < ids.length; i += chunkSize) {
+            const chunk = ids.slice(i, i + chunkSize);
+            await Promise.all(
+                chunk.map(async (id) => {
+                    try {
+                        const res = await apiFetch(`${endpoint}/${id}`, {
+                            method: "DELETE",
+                        });
+                        if (!res.ok) failed.push(id);
+                    } catch {
+                        failed.push(id);
+                    }
+                }),
+            );
+        }
+        if (failed.length) errorKey = "common.delete_failed";
+        selectedIds = failed;
+        await loadItems();
     }
 
     // Sahifa/filtr o'zgarganda mavjud bo'lmagan tanlovlarni tozalab turamiz.

@@ -19,9 +19,9 @@ type Attendance struct {
 	ID        uint
 	StudentID uint      `gorm:"not null;uniqueIndex:idx_attendance_student_date"`
 	Student   Student   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ClassID   uint      `gorm:"not null"`
+	ClassID   uint      `gorm:"not null;index:idx_attendance_class_date,priority:1"`
 	Class     Class     `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Date      time.Time `gorm:"type:date;not null;uniqueIndex:idx_attendance_student_date"`
+	Date      time.Time `gorm:"type:date;not null;uniqueIndex:idx_attendance_student_date;index:idx_attendance_class_date,priority:2"`
 	Status    string    `gorm:"size:32;not null"`
 	Reason    string    `gorm:"size:256"`
 }

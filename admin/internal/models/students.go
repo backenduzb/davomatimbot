@@ -8,6 +8,6 @@ type Student struct {
 	gorm.Model
 	ID uint
 	FullName string `gorm:"size:128"`
-	ClassID uint
+	ClassID uint `gorm:"index"`
 	Class Class `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 }
