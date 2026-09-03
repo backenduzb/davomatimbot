@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     import { Chart, registerables } from "chart.js";
     import { statisticsApi } from "$lib/api/statistics";
     import { importXlsx } from "$lib/api/importer";
@@ -30,16 +30,28 @@
     }
 
     async function loadData() {
+        if (loading) return;
         loading = true;
         error = "";
+        // Diqqat: loading=true bo'lganda canvas'lar DOM'dan olib tashlanadi,
+        // shuning uchun grafiklar faqat loading=false bo'lib, DOM yangilangandan
+        // keyin (tick) chiziladi. Aks holda "Yangilash" tugmasi xato beradi.
+        destroyCharts();
         try {
             data = await statisticsApi.getToday();
-            await renderCharts();
         } catch (e) {
             error = $t("common.load_failed");
             data = null;
         } finally {
             loading = false;
+        }
+        if (!data) return;
+        await tick();
+        try {
+            await renderCharts();
+        } catch (e) {
+            // Grafik chizishdagi muammo sahifa ma'lumotlarini yashirmasligi kerak.
+            console.error("chart render failed", e);
         }
     }
 
@@ -51,7 +63,7 @@
     }
 
     async function renderCharts() {
-        if (!data) return;
+        if (!data || !distributionCanvas || !comparisonCanvas) return;
         destroyCharts();
 
         const isDark = document.documentElement.classList.contains("dark");

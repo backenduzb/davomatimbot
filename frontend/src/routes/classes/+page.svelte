@@ -45,11 +45,21 @@
             optionsEndpoint: "class/names",
             optionLabel: "name",
             optionValue: "id",
+            editableOption: {
+                endpoint: "class/names",
+                field: "name",
+                toggleLabelKey: "classes.edit_class_name",
+                inputLabelKey: "classes.class_name",
+            },
         },
         { key: "teacher_full_name", labelKey: "classes.teacher", type: "text", required: true },
         { key: "teacher_telegram_id", labelKey: "classes.telegram_id", type: "text" },
         { key: "updated", labelKey: "classes.updated", type: "checkbox" },
     ];
+
+    async function reloadClassNames() {
+        classNames = await classNamesApi.getAll();
+    }
 
     onMount(async () => {
         const [names, students] = await Promise.all([
@@ -69,4 +79,5 @@
     endpoint="classes"
     {columns}
     {formFields}
+    on:optionsUpdated={reloadClassNames}
 />

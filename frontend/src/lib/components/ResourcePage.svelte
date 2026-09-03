@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onDestroy, onMount } from "svelte";
+    import { createEventDispatcher, onDestroy, onMount } from "svelte";
     import { apiFetch, fetchAllResults, API_BASE_URL } from "$lib/api";
     import { t } from "$lib/i18n";
     import type { Column, Field, Filter } from "$lib/types/resource";
@@ -30,10 +30,97 @@
     let paginationPages: PaginationItem[] = [];
     let deleteConfirmOpen = false;
     let itemToDelete: any = null;
+    let selectedIds: (string | number)[] = [];
+    let bulkDeleting = false;
+    let bulkDeleteConfirmOpen = false;
     let selectOptions: Record<
         string,
         { label?: string; labelKey?: string; value: string | number }[]
     > = {};
+
+    const dispatch = createEventDispatcher();
+
+    // Select maydonidagi tanlangan yozuvni (masalan sinf nomini) shu sahifadan
+    // tahrirlash holati: galochka + input qiymati.
+    let optionEdit: Record<string, { enabled: boolean; value: string }> = {};
+    let optionEditSaving = false;
+
+    function currentOptionLabel(field: Field): string {
+        const value = form[field.key];
+        if (value === undefined || value === null || value === "") return "";
+        const opt = (selectOptions[field.key] ?? []).find(
+            (o) => String(o.value) === String(value),
+        );
+        return opt ? labelFor(opt.label, opt.labelKey) : "";
+    }
+
+    function ensureOptionEdit(field: Field) {
+        if (!optionEdit[field.key]) {
+            optionEdit[field.key] = { enabled: false, value: "" };
+        }
+        return optionEdit[field.key];
+    }
+
+    // Select qiymati o'zgarganda input default holatda o'sha tanlangan
+    // yozuvning joriy nomini ko'rsatib turadi.
+    function syncOptionEditValue(field: Field) {
+        const state = ensureOptionEdit(field);
+        if (!state.enabled) {
+            state.value = currentOptionLabel(field);
+            optionEdit = { ...optionEdit };
+        }
+    }
+
+    function toggleOptionEdit(field: Field, enabled: boolean) {
+        const state = ensureOptionEdit(field);
+        state.enabled = enabled;
+        if (enabled && !state.value) {
+            state.value = currentOptionLabel(field);
+        }
+        if (!enabled) {
+            state.value = currentOptionLabel(field);
+        }
+        optionEdit = { ...optionEdit };
+    }
+
+    // saveOptionEdits galochka yoqilgan select maydonlari uchun bog'liq
+    // yozuvni (class/names/{id} kabi) PATCH qiladi.
+    async function saveOptionEdits(): Promise<boolean> {
+        const targets = formFields.filter(
+            (f) =>
+                f.type === "select" &&
+                f.editableOption &&
+                optionEdit[f.key]?.enabled &&
+                (optionEdit[f.key]?.value ?? "").trim() !== "",
+        );
+        if (!targets.length) return true;
+
+        optionEditSaving = true;
+        try {
+            for (const field of targets) {
+                const cfg = field.editableOption!;
+                const id = form[field.key];
+                if (id === undefined || id === null || id === "") continue;
+                const key = cfg.field ?? "name";
+                const newValue = optionEdit[field.key].value.trim();
+                if (newValue === currentOptionLabel(field)) continue;
+                const res = await apiFetch(`${cfg.endpoint}/${id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ [key]: newValue }),
+                });
+                if (!res.ok) throw new Error("option_save_failed");
+            }
+            await loadOptions();
+            selectOptions = { ...selectOptions };
+            dispatch("optionsUpdated");
+            return true;
+        } catch {
+            errorKey = "common.save_failed";
+            return false;
+        } finally {
+            optionEditSaving = false;
+        }
+    }
 
     const labelFor = (label?: string, labelKey?: string) => {
         if (labelKey) return $t(labelKey);
@@ -43,6 +130,7 @@
     onMount(async () => {
         filterValues = { ...initialFilterValues };
         await loadOptions();
+        resetOptionEdits();
         await loadItems();
     });
 
@@ -179,6 +267,23 @@
     function resetForm() {
         form = initialFormValues();
         editingId = null;
+        resetOptionEdits();
+    }
+
+    function resetOptionEdits() {
+        const next: Record<string, { enabled: boolean; value: string }> = {};
+        formFields.forEach((f) => {
+            if (f.type === "select" && f.editableOption) {
+                next[f.key] = { enabled: false, value: "" };
+            }
+        });
+        optionEdit = next;
+        formFields.forEach((f) => {
+            if (f.type === "select" && f.editableOption) {
+                optionEdit[f.key].value = currentOptionLabel(f);
+            }
+        });
+        optionEdit = { ...optionEdit };
     }
 
     let form: Record<string, any> = initialFormValues();
@@ -193,6 +298,7 @@
             }
         });
         editingId = item.id;
+        resetOptionEdits();
     }
 
     async function submitForm(e?: Event) {
@@ -200,6 +306,10 @@
         saving = true;
         errorKey = "";
         try {
+            // Avval bog'liq yozuv nomlari (masalan sinf nomi) yangilanadi.
+            const optionsOk = await saveOptionEdits();
+            if (!optionsOk) return;
+
             const method = editingId ? "PATCH" : "POST";
             const url = editingId ? `${endpoint}/${editingId}` : endpoint;
             const hasFile = formFields.some((f) => f.type === "file");
@@ -267,6 +377,75 @@
             itemToDelete = null;
         }
     }
+
+    // --- Ko'p tanlab o'chirish (bulk delete) ---
+
+    function isSelected(id: string | number, ids: (string | number)[]) {
+        return ids.some((selected) => String(selected) === String(id));
+    }
+
+    function toggleSelect(id: string | number) {
+        if (isSelected(id, selectedIds)) {
+            selectedIds = selectedIds.filter(
+                (selected) => String(selected) !== String(id),
+            );
+        } else {
+            selectedIds = [...selectedIds, id];
+        }
+    }
+
+    function toggleSelectAll() {
+        if (allSelected) {
+            selectedIds = [];
+        } else {
+            selectedIds = filteredItems.map((item) => item.id);
+        }
+    }
+
+    function clearSelection() {
+        selectedIds = [];
+    }
+
+    function askBulkDelete() {
+        if (!selectedIds.length) return;
+        bulkDeleteConfirmOpen = true;
+    }
+
+    async function handleBulkDelete() {
+        if (!selectedIds.length) return;
+        bulkDeleteConfirmOpen = false;
+        bulkDeleting = true;
+        errorKey = "";
+        const ids = [...selectedIds];
+        const failed: (string | number)[] = [];
+        try {
+            for (const id of ids) {
+                try {
+                    const res = await apiFetch(`${endpoint}/${id}`, {
+                        method: "DELETE",
+                    });
+                    if (!res.ok) failed.push(id);
+                } catch {
+                    failed.push(id);
+                }
+            }
+            if (failed.length) {
+                errorKey = "common.delete_failed";
+            }
+            selectedIds = failed;
+            await loadItems();
+        } finally {
+            bulkDeleting = false;
+        }
+    }
+
+    // Sahifa/filtr o'zgarganda mavjud bo'lmagan tanlovlarni tozalab turamiz.
+    $: selectedIds = selectedIds.filter((id) =>
+        filteredItems.some((item) => String(item.id) === String(id)),
+    );
+    $: allSelected =
+        filteredItems.length > 0 && selectedIds.length === filteredItems.length;
+    $: someSelected = selectedIds.length > 0 && !allSelected;
 
     function renderValue(value: any, key?: string) {
         if (value === null || value === undefined || value === "") return "-";
@@ -414,9 +593,41 @@
             class="lg:col-span-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden"
         >
             <div
-                class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300"
+                class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3"
             >
-                {$t("common.list")}
+                <div
+                    class="text-sm font-medium text-slate-700 dark:text-slate-300"
+                >
+                    {$t("common.list")}
+                    {#if selectedIds.length}
+                        <span class="ml-2 text-xs text-blue-600 dark:text-blue-400">
+                            {$t("common.selected")}: {selectedIds.length}
+                        </span>
+                    {/if}
+                </div>
+                {#if filteredItems.length}
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            class="px-3 py-2 text-xs rounded-md border hover:cursor-pointer border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                            on:click={toggleSelectAll}
+                        >
+                            {allSelected
+                                ? $t("common.clear_selection")
+                                : $t("common.select_all")}
+                        </button>
+                        <button
+                            type="button"
+                            class="px-3 py-2 text-xs rounded-md border hover:cursor-pointer border-red-200 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                            on:click={askBulkDelete}
+                            disabled={!selectedIds.length || bulkDeleting}
+                        >
+                            {bulkDeleting
+                                ? $t("common.deleting")
+                                : `${$t("common.delete_selected")}${selectedIds.length ? ` (${selectedIds.length})` : ""}`}
+                        </button>
+                    </div>
+                {/if}
             </div>
             <div class="overflow-x-auto">
                 {#if loading}
@@ -437,6 +648,16 @@
                             class="bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400"
                         >
                             <tr>
+                                <th class="px-4 py-3 w-10 text-left font-medium">
+                                    <input
+                                        type="checkbox"
+                                        class="accent-blue-600 h-4 w-4 cursor-pointer"
+                                        checked={allSelected}
+                                        indeterminate={someSelected}
+                                        on:change={toggleSelectAll}
+                                        aria-label={$t("common.select_all")}
+                                    />
+                                </th>
                                 {#each columns as col}
                                     <th class="px-4 py-3 text-left font-medium"
                                         >{labelFor(col.label, col.labelKey)}</th
@@ -450,8 +671,24 @@
                         <tbody>
                             {#each filteredItems as item (item.id)}
                                 <tr
-                                    class="border-t border-slate-200 dark:border-slate-700"
+                                    class={`border-t border-slate-200 dark:border-slate-700 ${
+                                        isSelected(item.id, selectedIds)
+                                            ? "bg-blue-50/70 dark:bg-blue-900/20"
+                                            : ""
+                                    }`}
                                 >
+                                    <td class="px-4 py-3">
+                                        <input
+                                            type="checkbox"
+                                            class="accent-blue-600 h-4 w-4 cursor-pointer"
+                                            checked={isSelected(
+                                                item.id,
+                                                selectedIds,
+                                            )}
+                                            on:change={() =>
+                                                toggleSelect(item.id)}
+                                        />
+                                    </td>
                                     {#each columns as col}
                                         <td
                                             class="px-4 py-3 text-slate-700 dark:text-slate-200"
@@ -576,9 +813,14 @@
 
                         {#if field.type === "select"}
                             <select
-                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 disabled:opacity-60 disabled:cursor-not-allowed"
                                 bind:value={form[field.key]}
                                 required={field.required}
+                                disabled={!!field.editableOption &&
+                                    optionEdit[field.key]?.enabled}
+                                on:change={() =>
+                                    field.editableOption &&
+                                    syncOptionEditValue(field)}
                             >
                                 <option value="" disabled selected
                                     >{$t("common.select_placeholder")}</option
@@ -592,6 +834,71 @@
                                     >
                                 {/each}
                             </select>
+
+                            {#if field.editableOption}
+                                <div class="space-y-2 pt-1">
+                                    <input
+                                        type="text"
+                                        class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                                        placeholder={field.editableOption
+                                            .inputLabelKey
+                                            ? $t(
+                                                  field.editableOption
+                                                      .inputLabelKey,
+                                              )
+                                            : (field.editableOption
+                                                  .inputLabel ??
+                                              $t("common.name"))}
+                                        disabled={!optionEdit[field.key]
+                                            ?.enabled ||
+                                            !form[field.key]}
+                                        value={optionEdit[field.key]?.value ??
+                                            ""}
+                                        on:input={(e) => {
+                                            ensureOptionEdit(field);
+                                            optionEdit[field.key].value = (
+                                                e.currentTarget as HTMLInputElement
+                                            ).value;
+                                            optionEdit = { ...optionEdit };
+                                        }}
+                                    />
+                                    <label
+                                        class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            class="accent-blue-600 h-4 w-4"
+                                            checked={optionEdit[field.key]
+                                                ?.enabled ?? false}
+                                            disabled={!form[field.key]}
+                                            on:change={(e) =>
+                                                toggleOptionEdit(
+                                                    field,
+                                                    (
+                                                        e.currentTarget as HTMLInputElement
+                                                    ).checked,
+                                                )}
+                                        />
+                                        <span>
+                                            {field.editableOption.toggleLabelKey
+                                                ? $t(
+                                                      field.editableOption
+                                                          .toggleLabelKey,
+                                                  )
+                                                : (field.editableOption
+                                                      .toggleLabel ??
+                                                  $t("common.edit_name"))}
+                                        </span>
+                                    </label>
+                                    {#if optionEdit[field.key]?.enabled}
+                                        <p
+                                            class="text-[11px] text-amber-600 dark:text-amber-400"
+                                        >
+                                            {$t("common.edit_name_hint")}
+                                        </p>
+                                    {/if}
+                                </div>
+                            {/if}
                         {:else if field.type === "checkbox"}
                             <label
                                 class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200"
@@ -682,6 +989,41 @@
                     on:click={handleConfirmDelete}
                 >
                     {$t("common.confirm") || "Tasdiqlash"}
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+{#if bulkDeleteConfirmOpen}
+    <div class="fixed inset-0 z-50 flex items-center justify-center">
+        <div
+            class="absolute inset-0 bg-black/50"
+            on:click={() => (bulkDeleteConfirmOpen = false)}
+        ></div>
+        <div
+            class="relative w-full max-w-md mx-4 rounded-2xl bg-white dark:bg-slate-800
+                   border border-slate-200 dark:border-slate-700 shadow-xl p-6"
+        >
+            <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {$t("common.delete_confirm")}
+            </h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                {$t("common.bulk_delete_warning")}
+                ({selectedIds.length})
+            </p>
+            <div class="mt-6 flex items-center gap-2 justify-end">
+                <button
+                    class="shrink-0 h-10 px-5 rounded-lg border dark:border-slate-700 border-slate-300 text-slate-600 dark:text-slate-400 text-sm active:scale-[0.98] transition cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
+                    on:click={() => (bulkDeleteConfirmOpen = false)}
+                >
+                    {$t("common.cancel")}
+                </button>
+                <button
+                    class="shrink-0 h-10 px-5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm active:scale-[0.98] transition cursor-pointer"
+                    on:click={handleBulkDelete}
+                >
+                    {$t("common.confirm")}
                 </button>
             </div>
         </div>

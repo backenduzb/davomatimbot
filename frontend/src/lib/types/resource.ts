@@ -28,6 +28,17 @@ export type Field = {
     labelKey?: string;
     value: string | number;
   }[];
+  // editableOption select maydonidagi tanlangan yozuvning o'zini (masalan sinf
+  // nomini) shu sahifadan turib tahrirlash imkonini beradi. Galochka
+  // belgilanganda select qulflanadi va matn input orqali nom o'zgartiriladi.
+  editableOption?: {
+    endpoint: string;
+    field?: string; // default: "name"
+    toggleLabel?: string;
+    toggleLabelKey?: string;
+    inputLabel?: string;
+    inputLabelKey?: string;
+  };
 };
 
 export type Filter = {
