@@ -18,24 +18,27 @@ func Preview(c *gin.Context) {
 		return
 	}
 
-	promote, graduate, skip := 0, 0, 0
+	promote, toDelete, skip := 0, 0, 0
+	var studentsToDelete int64
 	for _, plan := range plans {
 		switch plan.Action {
 		case promotionService.ActionPromote:
 			promote++
-		case promotionService.ActionGraduate:
-			graduate++
+		case promotionService.ActionDelete:
+			toDelete++
+			studentsToDelete += plan.StudentCount
 		case promotionService.ActionSkip:
 			skip++
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"plans":    plans,
-		"promote":  promote,
-		"graduate": graduate,
-		"skip":     skip,
-		"total":    len(plans),
+		"plans":             plans,
+		"promote":           promote,
+		"delete":            toDelete,
+		"students_to_delete": studentsToDelete,
+		"skip":              skip,
+		"total":             len(plans),
 	})
 }
 

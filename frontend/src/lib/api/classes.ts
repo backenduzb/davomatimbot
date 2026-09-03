@@ -57,7 +57,7 @@ export const classNamesApi = {
 
 // --- Sinflarni keyingi o'quv yiliga oshirish ---
 
-export type PromotionAction = "promote" | "graduate" | "skip";
+export type PromotionAction = "promote" | "delete" | "skip";
 
 export type PromotionPlan = {
   class_id: number;
@@ -71,14 +71,16 @@ export type PromotionPlan = {
 export type PromotionPreview = {
   plans: PromotionPlan[];
   promote: number;
-  graduate: number;
+  delete: number;
+  students_to_delete: number;
   skip: number;
   total: number;
 };
 
 export type PromotionResult = {
   promoted: number;
-  graduated: number;
+  deleted: number;
+  students_deleted: number;
   skipped: number;
   class_names_created: number;
 };

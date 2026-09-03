@@ -22,9 +22,11 @@ var leadingGrade = regexp.MustCompile(`^\s*(\d{1,2})\s*(.*)$`)
 type Action string
 
 const (
-	ActionPromote  Action = "promote"  // sinf oshiriladi (8A1 -> 9A1)
-	ActionGraduate Action = "graduate" // bitiruvchi sinf (11-sinf)
-	ActionSkip     Action = "skip"     // nomida raqam yo'q (masalan "KETGAN")
+	ActionPromote Action = "promote" // sinf oshiriladi (8A1 -> 9A1)
+	// ActionDelete — oshirilganda 11-sinfdan yuqori bo'lib ketadigan sinf.
+	// Bunday sinf o'quvchilari va davomat yozuvlari bilan birga o'chiriladi.
+	ActionDelete Action = "delete"
+	ActionSkip   Action = "skip" // nomida raqam yo'q (masalan "KETGAN")
 )
 
 // Plan — bitta sinf bo'yicha o'zgarish rejasi.
@@ -39,11 +41,12 @@ type Plan struct {
 
 // Result — oshirish natijasi.
 type Result struct {
-	Promoted       int    `json:"promoted"`
-	Graduated      int    `json:"graduated"`
-	Skipped        int    `json:"skipped"`
-	ClassNamesMade int    `json:"class_names_created"`
-	Plans          []Plan `json:"plans"`
+	Promoted        int    `json:"promoted"`
+	Deleted         int    `json:"deleted"`
+	StudentsDeleted int64  `json:"students_deleted"`
+	Skipped         int    `json:"skipped"`
+	ClassNamesMade  int    `json:"class_names_created"`
+	Plans           []Plan `json:"plans"`
 }
 
 // NextClassName sinf nomidan keyingi o'quv yili nomini hisoblaydi.
@@ -66,12 +69,14 @@ func NextClassName(name string) (string, Action) {
 	}
 
 	suffix := match[2]
+	next := grade + 1
 
-	if grade >= MaxGrade {
-		return trimmed, ActionGraduate
+	// Oshirilgandan keyin 11-sinfdan yuqori bo'lib ketadigan sinf o'chiriladi.
+	if next > MaxGrade {
+		return fmt.Sprintf("%d%s", next, suffix), ActionDelete
 	}
 
-	return fmt.Sprintf("%d%s", grade+1, suffix), ActionPromote
+	return fmt.Sprintf("%d%s", next, suffix), ActionPromote
 }
 
 // BuildPlan bazadagi sinflar uchun oshirish rejasini tuzadi (hech narsa
@@ -112,8 +117,12 @@ func BuildPlan(db *gorm.DB) ([]Plan, error) {
 		}
 
 		switch action {
-		case ActionGraduate:
-			plan.Reason = "Bitiruvchi sinf — o'zgartirilmaydi"
+		case ActionDelete:
+			plan.NextName = ""
+			plan.Reason = fmt.Sprintf(
+				"Bitiruvchi sinf — sinf va %d ta o'quvchi o'chiriladi",
+				row.Total,
+			)
 		case ActionSkip:
 			plan.Reason = "Nomida sinf raqami yo'q — o'zgartirilmaydi"
 		}
@@ -141,26 +150,54 @@ func Promote(db *gorm.DB) (*Result, error) {
 
 	result := &Result{Plans: plans}
 
-	// Faqat haqiqatan oshiriladigan sinflar.
+	// Oshiriladigan va o'chiriladigan sinflarni ajratamiz.
 	targets := make([]Plan, 0, len(plans))
+	deleteIDs := make([]uint, 0)
 	neededNames := make(map[string]struct{})
 	for _, plan := range plans {
 		switch plan.Action {
 		case ActionPromote:
 			targets = append(targets, plan)
 			neededNames[plan.NextName] = struct{}{}
-		case ActionGraduate:
-			result.Graduated++
+		case ActionDelete:
+			deleteIDs = append(deleteIDs, plan.ClassID)
 		case ActionSkip:
 			result.Skipped++
 		}
 	}
 
-	if len(targets) == 0 {
+	if len(targets) == 0 && len(deleteIDs) == 0 {
 		return result, nil
 	}
 
 	err = db.Transaction(func(tx *gorm.DB) error {
+		// 0) Bitiruvchi sinflarni o'chiramiz: avval davomat yozuvlari, keyin
+		//    o'quvchilar, oxirida sinfning o'zi. Har bir bosqich bitta
+		//    so'rov — o'quvchilar soni qancha bo'lishidan qat'i nazar tez.
+		if len(deleteIDs) > 0 {
+			if err := tx.Where("class_id IN ?", deleteIDs).
+				Delete(&models.Attendance{}).Error; err != nil {
+				return err
+			}
+
+			studentRes := tx.Where("class_id IN ?", deleteIDs).
+				Delete(&models.Student{})
+			if studentRes.Error != nil {
+				return studentRes.Error
+			}
+			result.StudentsDeleted = studentRes.RowsAffected
+
+			classRes := tx.Where("id IN ?", deleteIDs).Delete(&models.Class{})
+			if classRes.Error != nil {
+				return classRes.Error
+			}
+			result.Deleted = int(classRes.RowsAffected)
+		}
+
+		if len(targets) == 0 {
+			return nil
+		}
+
 		nameList := make([]string, 0, len(neededNames))
 		for name := range neededNames {
 			nameList = append(nameList, name)
