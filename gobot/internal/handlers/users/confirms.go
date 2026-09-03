@@ -6,7 +6,6 @@ import (
 	"bot/internal/repository/states"
 	"bot/internal/repository/students"
 	"bot/internal/services/keyboards/inline"
-	replyKeyboards "bot/internal/services/keyboards/reply"
 	"bot/utils"
 	"fmt"
 
@@ -29,10 +28,9 @@ func HandleAbsentConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 	allStudents := students.GetAllStudents(userID)
 
 	if query.Data == "add_more_unexcused" {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "Keyingi sababsiz kelmagan o'quvchini tanlang:", &gotgbot.SendMessageOpts{
-			ReplyMarkup: replyKeyboards.FilteredStudentsKeyboard(allStudents, session),
-		})
-		return handlers.NextConversationState(states.StateWaitingAbsentStudent)
+		return promptStudentChoice(b, ctx, session, allStudents,
+			"Keyingi sababsiz kelmagan o'quvchini tanlang:",
+			states.StateWaitingAbsentStudent)
 	}
 
 	if query.Data == "go_to_excused" {
@@ -62,10 +60,9 @@ func HandleReasonConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	if query.Data == "add_more_excused" {
 		allStudents := students.GetAllStudents(userID)
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "Sababli kelmagan o'quvchini tanlang:", &gotgbot.SendMessageOpts{
-			ReplyMarkup: replyKeyboards.FilteredStudentsKeyboard(allStudents, session),
-		})
-		return handlers.NextConversationState(states.StateWaitingReasonStudent)
+		return promptStudentChoice(b, ctx, session, allStudents,
+			"Sababli kelmagan o'quvchini tanlang:",
+			states.StateWaitingReasonStudent)
 	}
 
 	// Sababli bosqichi tugagach — kech kelganlar bosqichiga o'tamiz.
@@ -100,10 +97,9 @@ func HandleLateConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	if query.Data == "add_more_late" {
 		allStudents := students.GetAllStudents(userID)
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⏰ Kech kelgan o'quvchini tanlang:", &gotgbot.SendMessageOpts{
-			ReplyMarkup: replyKeyboards.FilteredStudentsKeyboard(allStudents, session),
-		})
-		return handlers.NextConversationState(states.StateWaitingLateStudent)
+		return promptStudentChoice(b, ctx, session, allStudents,
+			"⏰ Kech kelgan o'quvchini tanlang:",
+			states.StateWaitingLateStudent)
 	}
 
 	if query.Data == "save_attendance" {

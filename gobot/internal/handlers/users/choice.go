@@ -5,7 +5,6 @@ import (
 	"bot/internal/repository/states"
 	"bot/internal/repository/students"
 	"bot/internal/services/keyboards/inline"
-	replyKeyboards "bot/internal/services/keyboards/reply"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
@@ -34,10 +33,9 @@ func HandleAbsentTypeChoice(b *gotgbot.Bot, ctx *ext.Context) error {
 	}
 
 	if query.Data == "add_unexcused" {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "Sababsiz kelmagan o'quvchini tanlang:", &gotgbot.SendMessageOpts{
-			ReplyMarkup: replyKeyboards.FilteredStudentsKeyboard(allStudents, session),
-		})
-		return handlers.NextConversationState(states.StateWaitingAbsentStudent)
+		return promptStudentChoice(b, ctx, session, allStudents,
+			"Sababsiz kelmagan o'quvchini tanlang:",
+			states.StateWaitingAbsentStudent)
 	}
 	return nil
 }

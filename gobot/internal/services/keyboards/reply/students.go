@@ -51,7 +51,21 @@ func FilteredStudentsKeyboard(allStudents []models.Student, session *sessions.At
 		rows = append(rows, currentRow)
 	}
 	return gotgbot.ReplyKeyboardMarkup{
-		Keyboard:       rows,
-		ResizeKeyboard: true,
+		Keyboard:              rows,
+		ResizeKeyboard:        true,
+		OneTimeKeyboard:       false,
+		InputFieldPlaceholder: "O'quvchini tanlang",
 	}
+}
+
+// HasButtons klaviaturada kamida bitta tugma bor-yo'qligini tekshiradi.
+// Bo'sh klaviatura yuborilsa Telegram uni e'tiborsiz qoldiradi va
+// foydalanuvchi "tugmalar kelmadi" holatiga tushib qoladi.
+func HasButtons(markup gotgbot.ReplyKeyboardMarkup) bool {
+	for _, row := range markup.Keyboard {
+		if len(row) > 0 {
+			return true
+		}
+	}
+	return false
 }
