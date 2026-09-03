@@ -1,5 +1,5 @@
 <script lang="ts">
-    import Logo from "$lib/assets/logo.jpg";
+    import Logo from "$lib/assets/logo.svg";
     import LoginComponent from "$lib/components/authorization/Login.svelte";
     import { t } from "$lib/i18n";
     import Language from "$lib/components/Language.svelte";

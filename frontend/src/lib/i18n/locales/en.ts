@@ -80,9 +80,8 @@ export default {
     login_title: "Sign in",
     register_title: "Register",
     welcome: "Welcome!",
-    welcome_desc:
-      "Improving the adaptive learning process management mechanism through intelligent systems.",
-    org_name: "Samarkand Regional Pedagogical Center.",
+    welcome_desc: "Modern automated attendance collection and analysis system.",
+    org_name: "Kattakurgan District Specialized School.",
     login_tab: "Login",
     register_tab: "Register",
     login_btn: "Sign in",

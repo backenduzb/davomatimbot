@@ -80,9 +80,8 @@ export default {
     login_title: "Sistemge kiriw",
     register_title: "Dizimge alıw",
     welcome: "Xosh kelipsiñ!",
-    welcome_desc:
-      "Intellektual sistemalar arqalı oqıw processın adaptiv basqarıw mexanizmin jetilistiriw.",
-    org_name: "Samarqand wılayatı pedagogika orayı.",
+    welcome_desc: "Zamanagóy avtomatlastırılǵan qatnasnı jıynaw hám tahlil etiw sisteması.",
+    org_name: "Kattaqorǵan tumanı qánigelestirilgen mektebi.",
     login_tab: "Kiriw",
     register_tab: "Dizimge alıw",
     login_btn: "Kiriw",

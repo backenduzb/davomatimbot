@@ -2,11 +2,8 @@ import { goto } from "$app/navigation";
 import { browser } from "$app/environment";
 import type { PaginatedResponse } from "$lib/types";
 
-export const API_BASE_URL = (
-  import.meta.env.PUBLIC_API_URL ?? "http://34.134.26.219:8000"
-).replace(/\/$/, "");
-
-const API_URL = `${API_BASE_URL}/api`;
+export const API_BASE_URL = import.meta.env.PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
+const API_URL = API_BASE_URL ? `${API_BASE_URL}/api` : "/api";
 
 export class ApiClientError extends Error {
   status: number;

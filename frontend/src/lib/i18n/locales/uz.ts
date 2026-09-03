@@ -90,9 +90,8 @@ export default {
     login_title: "Tizimga kirish",
     register_title: "Ro'yxatdan o'tish",
     welcome: "Xush kelibsiz!",
-    welcome_desc:
-      "Intellektual tizimlari vositasida o'quv jarayonini adaptiv boshqarish mexanizmini takomillashtirish.",
-    org_name: "Samarqand viloyati pedagogika markazi.",
+    welcome_desc: "Zamonaviy avtomatlashtirilgan davomat yig'ish va tahlil qilish tizimi.",
+    org_name: "Kattaqo'rg'on tuman ixtisoslashtirilgan maktabi.",
     login_tab: "Login",
     register_tab: "Ro'yxatdan o'tish",
     login_btn: "Kirish",
