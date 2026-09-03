@@ -17,6 +17,9 @@ type AttendanceSession struct {
 	ClassInfo               map[uint]ClassDetail
 	ClassID                 uint
 	IsAdmin                 bool
+	// PendingClassName — bir xil nomli sinflar orasidan o'qituvchi bo'yicha
+	// tanlash bosqichida saqlanadigan sinf nomi.
+	PendingClassName string
 }
 
 type ClassDetail struct {

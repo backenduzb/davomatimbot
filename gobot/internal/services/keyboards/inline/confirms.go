@@ -35,6 +35,8 @@ func ReasonConfirmKeyboard() gotgbot.InlineKeyboardMarkup {
 	}
 }
 
+// Deprecated: admin endi sinfni reply klaviaturadan (faqat sinf nomlari)
+// tanlaydi — replyKeyboards.ClassNamesKeyboard'dan foydalaning.
 func ClassChoiceKeyboard(classes []models.Class) gotgbot.InlineKeyboardMarkup {
 	rows := make([][]gotgbot.InlineKeyboardButton, 0, len(classes))
 	for _, class := range classes {

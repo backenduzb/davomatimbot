@@ -7,6 +7,7 @@ import (
 	"bot/internal/repository/states"
 	"bot/internal/services/filters"
 	"bot/internal/services/keyboards/inline"
+	replyKeyboards "bot/internal/services/keyboards/reply"
 	"fmt"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
@@ -33,9 +34,20 @@ func HandleStart(b *gotgbot.Bot, ctx *ext.Context) error {
 			return handlers.EndConversation()
 		}
 
-		_, err := b.SendMessage(ctx.EffectiveChat.Id, message, &gotgbot.SendMessageOpts{
+		// Admin sinfni reply klaviaturadan tanlaydi: tugmalarda faqat
+		// sinf nomlari ko'rsatiladi.
+		classKeyboard := replyKeyboards.ClassNamesKeyboard(classList)
+		if len(classKeyboard.Keyboard) == 0 {
+			_, _ = b.SendMessage(ctx.EffectiveChat.Id, message+"\n\n⚠️ Sinflarga nom biriktirilmagan.", &gotgbot.SendMessageOpts{
+				ParseMode: "HTML",
+			})
+			sessions.DeleteSession(userID)
+			return handlers.EndConversation()
+		}
+
+		_, err := b.SendMessage(ctx.EffectiveChat.Id, message+"\n\n👇 Sinfni tanlang:", &gotgbot.SendMessageOpts{
 			ParseMode:   "HTML",
-			ReplyMarkup: inline.ClassChoiceKeyboard(classList),
+			ReplyMarkup: classKeyboard,
 		})
 		if err != nil {
 			return err

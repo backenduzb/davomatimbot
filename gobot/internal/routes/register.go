@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"strings"
+
 	"bot/internal/handlers"
 	adminHandlers "bot/internal/handlers/admin"
 	"bot/internal/handlers/users"
@@ -12,6 +14,12 @@ import (
 	tg "github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
 )
 
+// isPlainText buyruq bo'lmagan matnli xabarlarni filtrlaydi — shunda
+// /cancel kabi buyruqlar fallback handlerga o'tadi.
+func isPlainText(msg *gotgbot.Message) bool {
+	return msg.Text != "" && !strings.HasPrefix(msg.Text, "/")
+}
+
 func RegisterSimpleHandler(dp *ext.Dispatcher) {
 	attendanceConversation := tg.NewConversation(
 		[]ext.Handler{
@@ -19,8 +27,12 @@ func RegisterSimpleHandler(dp *ext.Dispatcher) {
 		},
 
 		map[string][]ext.Handler{
+			// Admin sinfni reply klaviatura (matnli tugma) orqali tanlaydi.
 			states.StateWaitingAdminClassChoice: {
-				tg.NewCallback(func(cb *gotgbot.CallbackQuery) bool { return true }, adminHandlers.HandleAdminClassChoice),
+				tg.NewMessage(isPlainText, adminHandlers.HandleAdminClassChoice),
+			},
+			states.StateWaitingAdminTeacherChoice: {
+				tg.NewMessage(isPlainText, adminHandlers.HandleAdminTeacherChoice),
 			},
 			states.StateWaitingAbsentTypeChoice: {
 				tg.NewCallback(func(cb *gotgbot.CallbackQuery) bool { return true }, users.HandleAbsentTypeChoice),

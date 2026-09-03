@@ -35,9 +35,17 @@ func GetClassID(telegramID uint) uint {
 	return class.ID
 }
 
+// GetAllClasses barcha sinflarni sinf nomi bo'yicha alifbo tartibida
+// qaytaradi (klaviaturadagi tugmalar tartibli bo'lishi uchun).
 func GetAllClasses() []models.Class {
 	var list []models.Class
-	database.DB.Preload("ClassName").Order("id asc").Find(&list)
+	database.DB.Model(&models.Class{}).
+		Preload("ClassName").
+		Select("classes.*").
+		Joins("LEFT JOIN class_names ON class_names.id = classes.class_name_id").
+		Order("class_names.name ASC NULLS LAST").
+		Order("classes.id ASC").
+		Find(&list)
 	return list
 }
 
