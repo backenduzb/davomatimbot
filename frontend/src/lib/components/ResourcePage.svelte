@@ -30,6 +30,9 @@
     let paginationPages: PaginationItem[] = [];
     let deleteConfirmOpen = false;
     let itemToDelete: any = null;
+    let selectedIds: (string | number)[] = [];
+    let bulkDeleting = false;
+    let bulkDeleteConfirmOpen = false;
     let selectOptions: Record<
         string,
         { label?: string; labelKey?: string; value: string | number }[]
@@ -268,6 +271,75 @@
         }
     }
 
+    // --- Ko'p tanlab o'chirish (bulk delete) ---
+
+    function isSelected(id: string | number, ids: (string | number)[]) {
+        return ids.some((selected) => String(selected) === String(id));
+    }
+
+    function toggleSelect(id: string | number) {
+        if (isSelected(id, selectedIds)) {
+            selectedIds = selectedIds.filter(
+                (selected) => String(selected) !== String(id),
+            );
+        } else {
+            selectedIds = [...selectedIds, id];
+        }
+    }
+
+    function toggleSelectAll() {
+        if (allSelected) {
+            selectedIds = [];
+        } else {
+            selectedIds = filteredItems.map((item) => item.id);
+        }
+    }
+
+    function clearSelection() {
+        selectedIds = [];
+    }
+
+    function askBulkDelete() {
+        if (!selectedIds.length) return;
+        bulkDeleteConfirmOpen = true;
+    }
+
+    async function handleBulkDelete() {
+        if (!selectedIds.length) return;
+        bulkDeleteConfirmOpen = false;
+        bulkDeleting = true;
+        errorKey = "";
+        const ids = [...selectedIds];
+        const failed: (string | number)[] = [];
+        try {
+            for (const id of ids) {
+                try {
+                    const res = await apiFetch(`${endpoint}/${id}`, {
+                        method: "DELETE",
+                    });
+                    if (!res.ok) failed.push(id);
+                } catch {
+                    failed.push(id);
+                }
+            }
+            if (failed.length) {
+                errorKey = "common.delete_failed";
+            }
+            selectedIds = failed;
+            await loadItems();
+        } finally {
+            bulkDeleting = false;
+        }
+    }
+
+    // Sahifa/filtr o'zgarganda mavjud bo'lmagan tanlovlarni tozalab turamiz.
+    $: selectedIds = selectedIds.filter((id) =>
+        filteredItems.some((item) => String(item.id) === String(id)),
+    );
+    $: allSelected =
+        filteredItems.length > 0 && selectedIds.length === filteredItems.length;
+    $: someSelected = selectedIds.length > 0 && !allSelected;
+
     function renderValue(value: any, key?: string) {
         if (value === null || value === undefined || value === "") return "-";
         if (typeof value === "boolean")
@@ -414,9 +486,41 @@
             class="lg:col-span-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden"
         >
             <div
-                class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300"
+                class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3"
             >
-                {$t("common.list")}
+                <div
+                    class="text-sm font-medium text-slate-700 dark:text-slate-300"
+                >
+                    {$t("common.list")}
+                    {#if selectedIds.length}
+                        <span class="ml-2 text-xs text-blue-600 dark:text-blue-400">
+                            {$t("common.selected")}: {selectedIds.length}
+                        </span>
+                    {/if}
+                </div>
+                {#if filteredItems.length}
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            class="px-3 py-2 text-xs rounded-md border hover:cursor-pointer border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                            on:click={toggleSelectAll}
+                        >
+                            {allSelected
+                                ? $t("common.clear_selection")
+                                : $t("common.select_all")}
+                        </button>
+                        <button
+                            type="button"
+                            class="px-3 py-2 text-xs rounded-md border hover:cursor-pointer border-red-200 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                            on:click={askBulkDelete}
+                            disabled={!selectedIds.length || bulkDeleting}
+                        >
+                            {bulkDeleting
+                                ? $t("common.deleting")
+                                : `${$t("common.delete_selected")}${selectedIds.length ? ` (${selectedIds.length})` : ""}`}
+                        </button>
+                    </div>
+                {/if}
             </div>
             <div class="overflow-x-auto">
                 {#if loading}
@@ -437,6 +541,16 @@
                             class="bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400"
                         >
                             <tr>
+                                <th class="px-4 py-3 w-10 text-left font-medium">
+                                    <input
+                                        type="checkbox"
+                                        class="accent-blue-600 h-4 w-4 cursor-pointer"
+                                        checked={allSelected}
+                                        indeterminate={someSelected}
+                                        on:change={toggleSelectAll}
+                                        aria-label={$t("common.select_all")}
+                                    />
+                                </th>
                                 {#each columns as col}
                                     <th class="px-4 py-3 text-left font-medium"
                                         >{labelFor(col.label, col.labelKey)}</th
@@ -450,8 +564,24 @@
                         <tbody>
                             {#each filteredItems as item (item.id)}
                                 <tr
-                                    class="border-t border-slate-200 dark:border-slate-700"
+                                    class={`border-t border-slate-200 dark:border-slate-700 ${
+                                        isSelected(item.id, selectedIds)
+                                            ? "bg-blue-50/70 dark:bg-blue-900/20"
+                                            : ""
+                                    }`}
                                 >
+                                    <td class="px-4 py-3">
+                                        <input
+                                            type="checkbox"
+                                            class="accent-blue-600 h-4 w-4 cursor-pointer"
+                                            checked={isSelected(
+                                                item.id,
+                                                selectedIds,
+                                            )}
+                                            on:change={() =>
+                                                toggleSelect(item.id)}
+                                        />
+                                    </td>
                                     {#each columns as col}
                                         <td
                                             class="px-4 py-3 text-slate-700 dark:text-slate-200"
@@ -682,6 +812,41 @@
                     on:click={handleConfirmDelete}
                 >
                     {$t("common.confirm") || "Tasdiqlash"}
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+{#if bulkDeleteConfirmOpen}
+    <div class="fixed inset-0 z-50 flex items-center justify-center">
+        <div
+            class="absolute inset-0 bg-black/50"
+            on:click={() => (bulkDeleteConfirmOpen = false)}
+        ></div>
+        <div
+            class="relative w-full max-w-md mx-4 rounded-2xl bg-white dark:bg-slate-800
+                   border border-slate-200 dark:border-slate-700 shadow-xl p-6"
+        >
+            <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {$t("common.delete_confirm")}
+            </h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                {$t("common.bulk_delete_warning")}
+                ({selectedIds.length})
+            </p>
+            <div class="mt-6 flex items-center gap-2 justify-end">
+                <button
+                    class="shrink-0 h-10 px-5 rounded-lg border dark:border-slate-700 border-slate-300 text-slate-600 dark:text-slate-400 text-sm active:scale-[0.98] transition cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
+                    on:click={() => (bulkDeleteConfirmOpen = false)}
+                >
+                    {$t("common.cancel")}
+                </button>
+                <button
+                    class="shrink-0 h-10 px-5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm active:scale-[0.98] transition cursor-pointer"
+                    on:click={handleBulkDelete}
+                >
+                    {$t("common.confirm")}
                 </button>
             </div>
         </div>
