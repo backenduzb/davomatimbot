@@ -52,7 +52,16 @@ func GenerateFullReport(telegramID uint, savedToDB bool) string {
 		}
 	}
 
-	fmt.Fprintf(&b, "<code>🕒 %s — %s</code>\n", dateStr, timeStr)
+	b.WriteString("\n⏰ <b>Kech kelganlar:</b>\n")
+	if len(session.LateStudents) == 0 {
+		b.WriteString(" — Yo'q\n")
+	} else {
+		for _, name := range session.LateStudents {
+			fmt.Fprintf(&b, " • %s\n", name)
+		}
+	}
+
+	fmt.Fprintf(&b, "\n<code>🕒 %s — %s</code>\n", dateStr, timeStr)
 
 	if savedToDB {
 		b.WriteString("\n✅ <b>Ma'lumotlar bazasida yangilandi</b>\n")

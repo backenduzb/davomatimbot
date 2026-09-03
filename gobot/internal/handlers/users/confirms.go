@@ -68,30 +68,73 @@ func HandleReasonConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 		return handlers.NextConversationState(states.StateWaitingReasonStudent)
 	}
 
-	if query.Data == "save_attendance" {
-		classID := session.ResolveClassID(userID)
-		if classID == 0 {
-			_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sinf aniqlanmadi. /start buyrug'ini qayta yuboring.", nil)
-			return handlers.EndConversation()
-		}
-
-		if err := attendance.SaveClassAttendance(classID, session); err != nil {
-			_, _ = b.SendMessage(ctx.EffectiveChat.Id, "❌ Davomatni saqlashda xatolik yuz berdi. Qayta urinib ko'ring.", nil)
-			return handlers.NextConversationState(states.StateWaitingReasonConfirm)
-		}
-
-		reportText := utils.GenerateFullReport(userID, true)
-
-		_, err := b.SendMessage(ctx.EffectiveChat.Id, reportText, &gotgbot.SendMessageOpts{
-			ParseMode:   "HTML",
-			ReplyMarkup: gotgbot.ReplyKeyboardRemove{RemoveKeyboard: true},
+	// Sababli bosqichi tugagach — kech kelganlar bosqichiga o'tamiz.
+	if query.Data == "go_to_late" {
+		report := session.GenerateInfoText()
+		msgText := fmt.Sprintf("📝 Sababli kelmaganlar ro'yxati shakllandi.\n%s\n\n⏰ Kech kelgan o'quvchilar bormi?", report)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, msgText, &gotgbot.SendMessageOpts{
+			ParseMode:   "Markdown",
+			ReplyMarkup: inline.LateConfirmKeyboard(),
 		})
-		if err != nil {
-			return err
-		}
+		return handlers.NextConversationState(states.StateWaitingLateConfirm)
+	}
 
-		sessions.DeleteSession(userID)
-		return handlers.EndConversation()
+	// Eski oqim bilan moslik: bu bosqichda ham saqlashga ruxsat beramiz.
+	if query.Data == "save_attendance" {
+		return saveAttendanceAndFinish(b, ctx, session, userID)
 	}
 	return nil
+}
+
+// HandleLateConfirm kech kelgan o'quvchilarni kiritish bosqichini boshqaradi.
+func HandleLateConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
+	query := ctx.Update.CallbackQuery
+	userID := uint(ctx.EffectiveUser.Id)
+	_, _ = query.Answer(b, nil)
+
+	session := sessions.GetSession(userID)
+	if session == nil {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", nil)
+		return handlers.EndConversation()
+	}
+
+	if query.Data == "add_more_late" {
+		allStudents := students.GetAllStudents(userID)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⏰ Kech kelgan o'quvchini tanlang:", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.FilteredStudentsKeyboard(allStudents, session),
+		})
+		return handlers.NextConversationState(states.StateWaitingLateStudent)
+	}
+
+	if query.Data == "save_attendance" {
+		return saveAttendanceAndFinish(b, ctx, session, userID)
+	}
+	return nil
+}
+
+// saveAttendanceAndFinish davomatni bazaga yozadi va hisobotni yuboradi.
+func saveAttendanceAndFinish(b *gotgbot.Bot, ctx *ext.Context, session *sessions.AttendanceSession, userID uint) error {
+	classID := session.ResolveClassID(userID)
+	if classID == 0 {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sinf aniqlanmadi. /start buyrug'ini qayta yuboring.", nil)
+		return handlers.EndConversation()
+	}
+
+	if err := attendance.SaveClassAttendance(classID, session); err != nil {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "❌ Davomatni saqlashda xatolik yuz berdi. Qayta urinib ko'ring.", nil)
+		return handlers.NextConversationState(states.StateWaitingLateConfirm)
+	}
+
+	reportText := utils.GenerateFullReport(userID, true)
+
+	_, err := b.SendMessage(ctx.EffectiveChat.Id, reportText, &gotgbot.SendMessageOpts{
+		ParseMode:   "HTML",
+		ReplyMarkup: gotgbot.ReplyKeyboardRemove{RemoveKeyboard: true},
+	})
+	if err != nil {
+		return err
+	}
+
+	sessions.DeleteSession(userID)
+	return handlers.EndConversation()
 }

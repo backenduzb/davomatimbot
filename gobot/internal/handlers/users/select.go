@@ -84,3 +84,42 @@ func HandleReasonStudentSelected(b *gotgbot.Bot, ctx *ext.Context) error {
 	})
 	return handlers.NextConversationState(states.StateWaitingReasonInput)
 }
+// HandleLateStudentSelected kech kelgan o'quvchini ro'yxatga qo'shadi.
+func HandleLateStudentSelected(b *gotgbot.Bot, ctx *ext.Context) error {
+	userID := uint(ctx.EffectiveUser.Id)
+	studentName := ctx.Message.Text
+	session := sessions.GetSession(userID)
+	if session == nil {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", nil)
+		return handlers.EndConversation()
+	}
+
+	studentID := students.GetStudentIDByName(studentName, userID)
+	if studentID == 0 {
+		allStudents := students.GetAllStudents(userID)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Bunday o'quvchi topilmadi. Iltimos, tugmalardan foydalaning!", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.FilteredStudentsKeyboard(allStudents, session),
+		})
+		return handlers.NextConversationState(states.StateWaitingLateStudent)
+	}
+
+	if session.IsAlreadyMarked(studentID) {
+		allStudents := students.GetAllStudents(userID)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Bu o'quvchi allaqachon kiritilgan! Boshqasini tanlang:", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.FilteredStudentsKeyboard(allStudents, session),
+		})
+		return handlers.NextConversationState(states.StateWaitingLateStudent)
+	}
+
+	session.LateStudents[studentID] = studentName
+
+	report := session.GenerateInfoText()
+	msgText := fmt.Sprintf("⏰ **%s** kech kelganlar ro'yxatiga qo'shildi.\n%s\nKeyingi qadamni tanlang:", studentName, report)
+
+	_, _ = b.SendMessage(ctx.EffectiveChat.Id, msgText, &gotgbot.SendMessageOpts{
+		ParseMode:   "Markdown",
+		ReplyMarkup: inline.LateConfirmKeyboard(),
+	})
+
+	return handlers.NextConversationState(states.StateWaitingLateConfirm)
+}

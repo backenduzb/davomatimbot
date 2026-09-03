@@ -10,4 +10,7 @@ const (
 	StateWaitingReasonStudent = "waiting_reason_student"
 	StateWaitingReasonInput   = "waiting_reason_input"
 	StateWaitingReasonConfirm = "waiting_reason_confirm"
+
+	StateWaitingLateStudent = "waiting_late_student"
+	StateWaitingLateConfirm = "waiting_late_confirm"
 )

@@ -12,6 +12,8 @@ var currentSession = make(map[uint]*AttendanceSession)
 type AttendanceSession struct {
 	UnexcusedStudents       map[uint]string
 	ExcusedStudents         map[uint]ExcusedDetail
+	// LateStudents — kech kelgan o'quvchilar (ID -> F.I.Sh).
+	LateStudents map[uint]string
 	LastSelectedStudentID   uint
 	LastSelectedStudentName string
 	ClassInfo               map[uint]ClassDetail
@@ -36,6 +38,7 @@ func NewSession(userID uint) {
 	currentSession[userID] = &AttendanceSession{
 		UnexcusedStudents: make(map[uint]string),
 		ExcusedStudents:   make(map[uint]ExcusedDetail),
+		LateStudents:      make(map[uint]string),
 		ClassInfo:         make(map[uint]ClassDetail),
 	}
 }
@@ -58,7 +61,8 @@ func (s *AttendanceSession) ResolveClassID(telegramUserID uint) uint {
 func (s *AttendanceSession) IsAlreadyMarked(studentID uint) bool {
 	_, inUnexcused := s.UnexcusedStudents[studentID]
 	_, inExcused := s.ExcusedStudents[studentID]
-	return inUnexcused || inExcused
+	_, inLate := s.LateStudents[studentID]
+	return inUnexcused || inExcused || inLate
 }
 
 func (s *AttendanceSession) GenerateInfoText() string {
@@ -78,6 +82,15 @@ func (s *AttendanceSession) GenerateInfoText() string {
 	} else {
 		for _, detail := range s.ExcusedStudents {
 			sb.WriteString(fmt.Sprintf("• %s — *%s*\n", detail.Name, detail.Reason))
+		}
+	}
+
+	sb.WriteString("\n⏰ **Kech kelganlar:**\n")
+	if len(s.LateStudents) == 0 {
+		sb.WriteString("— Yo'q\n")
+	} else {
+		for _, name := range s.LateStudents {
+			sb.WriteString(fmt.Sprintf("• %s\n", name))
 		}
 	}
 

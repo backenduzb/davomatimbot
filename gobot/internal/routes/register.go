@@ -52,6 +52,13 @@ func RegisterSimpleHandler(dp *ext.Dispatcher) {
 			states.StateWaitingReasonConfirm: {
 				tg.NewCallback(func(cb *gotgbot.CallbackQuery) bool { return true }, users.HandleReasonConfirm),
 			},
+			// Kech kelgan o'quvchilarni kiritish bosqichi.
+			states.StateWaitingLateStudent: {
+				tg.NewMessage(isPlainText, users.HandleLateStudentSelected),
+			},
+			states.StateWaitingLateConfirm: {
+				tg.NewCallback(func(cb *gotgbot.CallbackQuery) bool { return true }, users.HandleLateConfirm),
+			},
 		},
 
 		&tg.ConversationOpts{

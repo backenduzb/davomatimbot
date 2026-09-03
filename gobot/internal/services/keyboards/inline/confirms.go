@@ -30,6 +30,16 @@ func ReasonConfirmKeyboard() gotgbot.InlineKeyboardMarkup {
 	return gotgbot.InlineKeyboardMarkup{
 		InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
 			{{Text: "➕ Sababli qo'shish", CallbackData: "add_more_excused"}},
+			{{Text: "⏰ Kech kelganlarga o'tish", CallbackData: "go_to_late"}},
+		},
+	}
+}
+
+// LateConfirmKeyboard kech kelgan o'quvchilarni kiritish bosqichi uchun.
+func LateConfirmKeyboard() gotgbot.InlineKeyboardMarkup {
+	return gotgbot.InlineKeyboardMarkup{
+		InlineKeyboard: [][]gotgbot.InlineKeyboardButton{
+			{{Text: "➕ Kech kelganni qo'shish", CallbackData: "add_more_late"}},
 			{{Text: "💾 Davomatni saqlash", CallbackData: "save_attendance"}},
 		},
 	}

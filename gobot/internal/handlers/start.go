@@ -45,12 +45,18 @@ func HandleStart(b *gotgbot.Bot, ctx *ext.Context) error {
 			return handlers.EndConversation()
 		}
 
-		_, err := b.SendMessage(ctx.EffectiveChat.Id, message+"\n\n👇 Sinfni tanlang:", &gotgbot.SendMessageOpts{
-			ParseMode:   "HTML",
-			ReplyMarkup: classKeyboard,
-		})
-		if err != nil {
-			return err
+		// Sinflar kesimidagi hisobot uzun bo'lishi mumkin — Telegram cheklovi
+		// (4096 belgi) sababli xabar bo'laklarga bo'lib yuboriladi.
+		chunks := statistics.SplitMessage(message + "\n\n👇 Sinfni tanlang:")
+		for i, chunk := range chunks {
+			opts := &gotgbot.SendMessageOpts{ParseMode: "HTML"}
+			// Klaviatura faqat oxirgi xabarga biriktiriladi.
+			if i == len(chunks)-1 {
+				opts.ReplyMarkup = classKeyboard
+			}
+			if _, err := b.SendMessage(ctx.EffectiveChat.Id, chunk, opts); err != nil {
+				return err
+			}
 		}
 		return handlers.NextConversationState(states.StateWaitingAdminClassChoice)
 	}

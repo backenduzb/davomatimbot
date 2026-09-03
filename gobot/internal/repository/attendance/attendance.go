@@ -26,6 +26,9 @@ func SaveClassAttendance(classID uint, session *sessions.AttendanceSession) erro
 		} else if detail, ok := session.ExcusedStudents[student.ID]; ok {
 			status = models.AttendanceExcused
 			reason = detail.Reason
+		} else if _, ok := session.LateStudents[student.ID]; ok {
+			// Kech kelgan o'quvchilar alohida "late" statusi bilan saqlanadi.
+			status = models.AttendanceLate
 		}
 
 		var existing models.Attendance
