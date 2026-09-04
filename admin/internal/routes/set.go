@@ -63,6 +63,12 @@ func SetupAuthRoutes(r *gin.Engine, db *gorm.DB) {
 		handlers.Profile,
 	)
 
+	// Foydalanuvchi o'z parolini almashtiradi (joriy parolni tasdiqlab).
+	api.POST("/me/password",
+		auth.AuthMiddleware(),
+		handlers.ChangePassword,
+	)
+
 	// Sinflarni keyingi o'quv yiliga oshirish (8-sinf -> 9-sinf ...).
 	// Preview — nima o'zgarishini ko'rsatadi, Promote — amalni bajaradi.
 	// Diqqat: "/classes/..." ostiga qo'yib bo'lmaydi, chunki GET /classes/:id

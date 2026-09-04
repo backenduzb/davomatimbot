@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "./client";
+import { API_BASE_URL, apiRequest } from "./client";
 import type { LoginResponse, User } from "$lib/types";
 
 export async function login(username: string, password: string) {
@@ -29,4 +29,21 @@ export async function getCurrentUser() {
   }
 
   return (await res.json()) as User;
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+}
+
+/**
+ * Foydalanuvchi o'z parolini almashtiradi.
+ * Backend joriy parolni tekshiradi va xato bo'lsa ApiClientError qaytaradi
+ * (message — backenddagi o'zbekcha matn).
+ */
+export async function changePassword(payload: ChangePasswordPayload) {
+  return apiRequest<{ message: string }>("me/password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
