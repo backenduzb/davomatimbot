@@ -100,7 +100,7 @@ func GenerateXLSX(rows []attendance.ReportRow) ([]byte, error) {
 		if err := f.SetCellValue(SheetName, fmt.Sprintf("A%d", r), row.ClassName); err != nil {
 			return nil, fmt.Errorf("qator yozish: %w", err)
 		}
-		if err := f.SetCellValue(SheetName, fmt.Sprintf("B%d", r), row.Student); err != nil {
+		if err := f.SetCellValue(SheetName, fmt.Sprintf("B%d", r), NormalizeName(row.Student)); err != nil {
 			return nil, fmt.Errorf("qator yozish: %w", err)
 		}
 		if err := f.SetCellValue(SheetName, fmt.Sprintf("C%d", r), row.Date); err != nil {
