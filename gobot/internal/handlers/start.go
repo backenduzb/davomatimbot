@@ -24,6 +24,14 @@ func HandleStart(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	if filters.CheckIsAdmin(userID) {
 		session.IsAdmin = true
+		// "📋 Davomat topshirish" tugmasi conversation entry sifatida ham
+		// HandleStart'ni chaqiradi (AllowReEntry). Admin menyu holatida
+		// turib shu tugmani bossa — menyuni qayta chiqarib loop'ga
+		// tushib qolmasligi uchun to'g'ridan-to'g'ri sinf tanlashga
+		// o'tkazamiz. /start buyrug'i esa menyuni ko'rsatadi.
+		if ctx.EffectiveMessage != nil && replyKeyboards.IsDavomatTopshirish(ctx.EffectiveMessage.Text) {
+			return StartAdminAttendance(b, ctx)
+		}
 		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "👋 Assalomu alaykum, admin!\nQuyidagi menyudan birini tanlang:", &gotgbot.SendMessageOpts{
 			ReplyMarkup: replyKeyboards.AdminMenuKeyboard(),
 		})
