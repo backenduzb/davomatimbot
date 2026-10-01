@@ -5,6 +5,7 @@ import (
 	"bot/internal/repository/states"
 	"bot/internal/repository/students"
 	"bot/internal/services/keyboards/inline"
+	replyKeyboards "bot/internal/services/keyboards/reply"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
@@ -18,7 +19,9 @@ func HandleAbsentTypeChoice(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	session := sessions.GetSession(userID)
 	if session == nil {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", nil)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start yuboring yoki 👇 tugmani bosing.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.MainKeyboard(),
+		})
 		return handlers.EndConversation()
 	}
 

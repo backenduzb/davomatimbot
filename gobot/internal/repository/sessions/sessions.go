@@ -19,6 +19,10 @@ type AttendanceSession struct {
 	ClassInfo               map[uint]ClassDetail
 	ClassID                 uint
 	IsAdmin                 bool
+	// GuestTeacherID / GuestTeacherName — ustoz bo'lmagan mehmon tabrik
+	// yo'llamoqchi bo'lgan ustoz (tanlovdan keyin saqlanadi).
+	GuestTeacherID   int64
+	GuestTeacherName string
 	// PendingClassName — bir xil nomli sinflar orasidan o'qituvchi bo'yicha
 	// tanlash bosqichida saqlanadigan sinf nomi.
 	PendingClassName string

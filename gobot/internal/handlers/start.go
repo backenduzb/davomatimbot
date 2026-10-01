@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bot/internal/handlers/guest"
 	"bot/internal/repository/classes"
 	"bot/internal/repository/sessions"
+	"bot/internal/repository/settings"
 	"bot/internal/repository/statistics"
 	"bot/internal/repository/states"
 	"bot/internal/services/filters"
@@ -22,47 +24,21 @@ func HandleStart(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	if filters.CheckIsAdmin(userID) {
 		session.IsAdmin = true
-		stats := statistics.GetTodayOverview()
-		message := statistics.FormatAdminOverviewMessage(stats)
-		classList := classes.GetAllClasses()
-
-		if len(classList) == 0 {
-			_, _ = b.SendMessage(ctx.EffectiveChat.Id, message+"\n\n⚠️ Sistemada sinflar topilmadi.", &gotgbot.SendMessageOpts{
-				ParseMode: "HTML",
-			})
-			sessions.DeleteSession(userID)
-			return handlers.EndConversation()
-		}
-
-		// Admin sinfni reply klaviaturadan tanlaydi: tugmalarda faqat
-		// sinf nomlari ko'rsatiladi.
-		classKeyboard := replyKeyboards.ClassNamesKeyboard(classList)
-		if len(classKeyboard.Keyboard) == 0 {
-			_, _ = b.SendMessage(ctx.EffectiveChat.Id, message+"\n\n⚠️ Sinflarga nom biriktirilmagan.", &gotgbot.SendMessageOpts{
-				ParseMode: "HTML",
-			})
-			sessions.DeleteSession(userID)
-			return handlers.EndConversation()
-		}
-
-		// Sinflar kesimidagi hisobot uzun bo'lishi mumkin — Telegram cheklovi
-		// (4096 belgi) sababli xabar bo'laklarga bo'lib yuboriladi.
-		chunks := statistics.SplitMessage(message + "\n\n👇 Sinfni tanlang:")
-		for i, chunk := range chunks {
-			opts := &gotgbot.SendMessageOpts{ParseMode: "HTML"}
-			// Klaviatura faqat oxirgi xabarga biriktiriladi.
-			if i == len(chunks)-1 {
-				opts.ReplyMarkup = classKeyboard
-			}
-			if _, err := b.SendMessage(ctx.EffectiveChat.Id, chunk, opts); err != nil {
-				return err
-			}
-		}
-		return handlers.NextConversationState(states.StateWaitingAdminClassChoice)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "👋 Assalomu alaykum, admin!\nQuyidagi menyudan birini tanlang:", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.AdminMenuKeyboard(),
+		})
+		return handlers.NextConversationState(states.StateWaitingAdminMenu)
 	}
 
 	if !filters.CheckIsTeacher(userID) {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sizda davomat topshirish huquqi yo'q.", nil)
+		// Ustoz bo'lmagan foydalanuvchi — tabrik funksiyasi yoqilgan bo'lsa
+		// ustozlar ro'yxati chiqariladi.
+		if settings.IsGuestCongratsEnabled() {
+			return guest.StartGuestFlow(b, ctx)
+		}
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sizda davomat topshirish huquqi yo'q.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: gotgbot.ReplyKeyboardRemove{RemoveKeyboard: true},
+		})
 		sessions.DeleteSession(userID)
 		return handlers.EndConversation()
 	}
@@ -76,6 +52,57 @@ func HandleStart(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	session.SetClassContext(userID, classID)
 	return BeginAttendanceFlow(b, ctx)
+}
+
+// StartAdminAttendance admin "Davomat topshirish" tugmasini bosganda
+// sinf tanlash oqimini boshlaydi (avvalgi HandleStart dagi admin qismi).
+func StartAdminAttendance(b *gotgbot.Bot, ctx *ext.Context) error {
+	userID := uint(ctx.EffectiveUser.Id)
+	session := sessions.GetSession(userID)
+	if session == nil || !session.IsAdmin {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start yuboring.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.AdminMenuKeyboard(),
+		})
+		return handlers.EndConversation()
+	}
+
+	stats := statistics.GetTodayOverview()
+	message := statistics.FormatAdminOverviewMessage(stats)
+	classList := classes.GetAllClasses()
+
+	if len(classList) == 0 {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, message+"\n\n⚠️ Sistemada sinflar topilmadi.", &gotgbot.SendMessageOpts{
+			ParseMode: "HTML",
+		})
+		sessions.DeleteSession(userID)
+		return handlers.EndConversation()
+	}
+
+	// Admin sinfni reply klaviaturadan tanlaydi: tugmalarda faqat
+	// sinf nomlari ko'rsatiladi.
+	classKeyboard := replyKeyboards.ClassNamesKeyboard(classList)
+	if len(classKeyboard.Keyboard) == 0 {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, message+"\n\n⚠️ Sinflarga nom biriktirilmagan.", &gotgbot.SendMessageOpts{
+			ParseMode: "HTML",
+		})
+		sessions.DeleteSession(userID)
+		return handlers.EndConversation()
+	}
+
+	// Sinflar kesimidagi hisobot uzun bo'lishi mumkin — Telegram cheklovi
+	// (4096 belgi) sababli xabar bo'laklarga bo'lib yuboriladi.
+	chunks := statistics.SplitMessage(message + "\n\n👇 Sinfni tanlang:")
+	for i, chunk := range chunks {
+		opts := &gotgbot.SendMessageOpts{ParseMode: "HTML"}
+		// Klaviatura faqat oxirgi xabarga biriktiriladi.
+		if i == len(chunks)-1 {
+			opts.ReplyMarkup = classKeyboard
+		}
+		if _, err := b.SendMessage(ctx.EffectiveChat.Id, chunk, opts); err != nil {
+			return err
+		}
+	}
+	return handlers.NextConversationState(states.StateWaitingAdminClassChoice)
 }
 
 func BeginAttendanceFlow(b *gotgbot.Bot, ctx *ext.Context) error {

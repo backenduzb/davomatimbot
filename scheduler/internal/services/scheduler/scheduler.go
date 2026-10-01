@@ -7,36 +7,47 @@ import (
 	"time"
 
 	"scheduler/internal/repository/attendance"
+	"scheduler/internal/repository/classes"
 	"scheduler/internal/services/report"
 )
 
-// Kunlik reja (barcha vaqtlar TIMEZONE sohasida):
-//
-//	00:00 — yangi kun boshlanadi (kunlik davomat sikli)
-//	16:00 — kunlik davomat hisoboti (davomat.xlsx) Telegram'ga yuboriladi
 const (
-	DayStartHour = 0
-	ReportHour   = 16
+	DayStartHour   = 0
+	ReminderHour   = 9
+	ReminderMinute = 45
+	ReportHour     = 16
 )
 
-// ReportState oxirgi yuborilgan hisobot sanasini saqlaydi o'qiydi.
-// (Takroriy yuborishdan himoya uchun — qarang RunReportJob.)
+type EventKind string
+
+const (
+	EventDayTransition EventKind = "day_transition"
+	EventReminder      EventKind = "reminder"
+	EventReport        EventKind = "report"
+)
+
 type ReportState interface {
 	GetLastReportDate() time.Time
 	SetLastReportDate(date time.Time) error
 }
 
-// DocumentSender xotiradagi fayl ma'lumotini hujjat sifatida chatga
-// yuboradi.
+type ReminderState interface {
+	GetLastReminderDate() time.Time
+	SetLastReminderDate(date time.Time) error
+}
+
 type DocumentSender interface {
 	SendDocument(chatID int64, fileName string, data []byte, caption string) error
 }
 
-// ListAttendanceFunc berilgan sanadagi davomat qatorlarini qaytaradi.
+type MessageSender interface {
+	SendMessage(chatID int64, text string) error
+}
+
 type ListAttendanceFunc func(date time.Time) ([]attendance.ReportRow, error)
 
-// Scheduler — 16:00 (hisobot) va 00:00 (kun o'tishi) voqealarini soat
-// sohasi asosida rejalashtirib turadigan fon ishchi jarayoni.
+type ListUnsubmittedFunc func(date time.Time) ([]classes.UnsubmittedClass, error)
+
 type Scheduler struct {
 	loc      *time.Location
 	chatID   int64
@@ -44,11 +55,12 @@ type Scheduler struct {
 	listRows ListAttendanceFunc
 	state    ReportState
 	nowFn    func() time.Time
+
+	reminderSender MessageSender
+	listUnsubmitted ListUnsubmittedFunc
+	reminderState   ReminderState
 }
 
-// New scheduler yaratadi. nowFn default holda time.Now — testlarda
-// voqeani to'g'ridan-to'g'ri RunReportJob/RunDayTransition orqali chaqirish
-// orqali vaqt kutmasdan sinash mumkin.
 func New(loc *time.Location, chatID int64, sender DocumentSender, listRows ListAttendanceFunc, state ReportState) *Scheduler {
 	return &Scheduler{
 		loc:      loc,
@@ -60,41 +72,47 @@ func New(loc *time.Location, chatID int64, sender DocumentSender, listRows ListA
 	}
 }
 
-// NextEventTime `now` dan keyingi (yoki aynan shu zahotdagi) rejalashtirilgan
-// voqeani qaytaradi: (vaqt, hisobotmi). Qaytariladigan vaqtlar har doim
-// soat sohasidagi devor soati (wall-clock) asosida hisoblanadi — DST
-// sohalarida ham "soat 16:00" ma'nosini saqlaydi.
-func NextEventTime(now time.Time, loc *time.Location) (time.Time, bool) {
+func (s *Scheduler) WithReminder(sender MessageSender, list ListUnsubmittedFunc, state ReminderState) *Scheduler {
+	s.reminderSender = sender
+	s.listUnsubmitted = list
+	s.reminderState = state
+	return s
+}
+
+func isWeekday(t time.Time) bool {
+	wd := t.Weekday()
+	return wd >= time.Monday && wd <= time.Friday
+}
+
+func NextEventTime(now time.Time, loc *time.Location) (time.Time, EventKind) {
 	now = now.In(loc)
 	base := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-	for d := 0; d < 3; d++ {
+	for d := 0; d < 8; d++ {
 		day := base.AddDate(0, 0, d)
 		midnight := time.Date(day.Year(), day.Month(), day.Day(), DayStartHour, 0, 0, 0, loc)
-		report := time.Date(day.Year(), day.Month(), day.Day(), ReportHour, 0, 0, 0, loc)
 		if !midnight.Before(now) {
-			return midnight, false
+			return midnight, EventDayTransition
 		}
+		if isWeekday(day) {
+			reminder := time.Date(day.Year(), day.Month(), day.Day(), ReminderHour, ReminderMinute, 0, 0, loc)
+			if !reminder.Before(now) {
+				return reminder, EventReminder
+			}
+		}
+		report := time.Date(day.Year(), day.Month(), day.Day(), ReportHour, 0, 0, 0, loc)
 		if !report.Before(now) {
-			return report, true
+			return report, EventReport
 		}
 	}
-	// Har kunda 2 ta voqea bo'lgani uchun 3 kun ichida albatta topiladi.
 	panic("NextEventTime: voqea topilmadi")
 }
 
-// Run scheduler asosiy sikli: keyingi rejalashgan vaqtni hisoblaydi, shu
-// vaqtni kutadi va voqeani bajaradi. Xatolar jarayonni to'xtatmaydi —
-// yozib, keyingi voqea kutiladi. ctx bekor qilinganda jarayon to'xtaydi.
 func (s *Scheduler) Run(ctx context.Context) error {
 	for {
 		now := s.nowFn()
-		next, isReport := NextEventTime(now, s.loc)
+		next, kind := NextEventTime(now, s.loc)
 
-		what := "day transition"
-		if isReport {
-			what = "report"
-		}
-		log.Printf("next %s: %s", what, next.Format("2006-01-02 15:04:05 -07 (MST)"))
+		log.Printf("next %s: %s", string(kind), next.Format("2006-01-02 15:04:05 -07 (MST)"))
 
 		timer := time.NewTimer(next.Sub(now))
 		select {
@@ -105,30 +123,21 @@ func (s *Scheduler) Run(ctx context.Context) error {
 		case <-timer.C:
 		}
 
-		// Voqea bajarildi — keyingi siklda xatolar keyingi vaqtga
-		// o'tkaziladi (jarayon to'xtamaydi).
-		if isReport {
+		switch kind {
+		case EventReport:
 			if err := s.RunReportJob(s.nowFn()); err != nil {
 				log.Printf("error: kunlik hisobot ishi bajarilmadi: %v", err)
 			}
-		} else {
+		case EventReminder:
+			if err := s.RunReminderJob(s.nowFn()); err != nil {
+				log.Printf("error: eslatma ishi bajarilmadi: %v", err)
+			}
+		default:
 			s.RunDayTransition(s.nowFn())
 		}
 	}
 }
 
-// RunReportJob bitta kunlik hisobot ishini bajaradi:
-//
-//  1. bugungi (soat sohasidagi) sanani aniqlaydi;
-//  2. restart himoyasi — shu sana uchun hisobot allaqachon yuborilgan
-//     bo'lsa, takrorlamaydi;
-//  3. bazadan bugungi davomat qatorlarini o'qiydi;
-//  4. davomat.xlsx generatsiya qiladi;
-//  5. faylni Telegram guruhiga yuboradi;
-//  6. muvaffaqiyatli yuborilgan sanani bazaga saqlaydi.
-//
-// Hisobotdan keyin davomat ma'lumotlari o'chirilmaydi — tarixiy yozuvlar
-// saqlanib qoladi.
 func (s *Scheduler) RunReportJob(now time.Time) error {
 	date := midnight(now.In(s.loc))
 
@@ -158,19 +167,60 @@ func (s *Scheduler) RunReportJob(now time.Time) error {
 	log.Println("report sent successfully")
 
 	if err := s.state.SetLastReportDate(date); err != nil {
-		// Hisobot yuborilgan — takrorlash xavfli, shuning uchun faqat
-		// ogohlantiramiz.
 		log.Printf("warning: oxirgi hisobot sanasi bazaga saqlanamadi: %v", err)
 	}
 	return nil
 }
 
-// RunDayTransition 00:00 voqeasi. Mevcud bazada davomat yozuvlari
-// (o'quvchi, sana) unikal bo'lgani va yozuvlar o'qituvchi/bot tomonidan
-// zarurat bo'lganda (kiritilganda) yaratilgani uchun, yangi kunga o'tishda
-// hech qanday o'chirish yoki yaratish talab etilmaydi — yangi kunning
-// davomati o'sha kunning sanasi bilan yangi yozuvlar sifatida keladi.
-// Shu voqea shunchaki siklni belgilaydi va log'ga yozadi.
+func ReminderMessageFor(className, teacherName string, date time.Time) string {
+	dateStr := date.Format("02.01.2006")
+	if teacherName != "" && teacherName != "-" {
+		return fmt.Sprintf("⏰ Hurmatli %s!\n\nIltimos, bugungi (<b>%s</b>) <b>%s</b> sinfi davomatini topshiring.\n\nBotda 👇 \"📋 Davomat topshirish\" tugmasini bosing yoki /start yuboring.", teacherName, dateStr, className)
+	}
+	return fmt.Sprintf("⏰ Iltimos, bugungi (<b>%s</b>) <b>%s</b> sinfi davomatini topshiring.\n\nBotda 👇 \"📋 Davomat topshirish\" tugmasini bosing yoki /start yuboring.", dateStr, className)
+}
+
+func (s *Scheduler) RunReminderJob(now time.Time) error {
+	today := now.In(s.loc)
+	if !isWeekday(today) {
+		log.Printf("reminder: %s dam olish kuni — eslatma yuborilmaydi", today.Format("2006-01-02 Mon"))
+		return nil
+	}
+	date := midnight(today)
+
+	if s.reminderSender == nil || s.listUnsubmitted == nil || s.reminderState == nil {
+		log.Println("reminder: bog'liqliklar ulanmagan — eslatma o'tkazib yuborildi")
+		return nil
+	}
+
+	if last := s.reminderState.GetLastReminderDate(); !last.IsZero() && sameDay(last, date) {
+		log.Printf("reminder for %s was already sent — skipping (restart himoyasi)", date.Format("2006-01-02"))
+		return nil
+	}
+
+	pending, err := s.listUnsubmitted(date)
+	if err != nil {
+		return fmt.Errorf("topshirilmagan sinflarni o'qishda xato: %w", err)
+	}
+	log.Printf("reminder: topshirilmagan sinflar: %d", len(pending))
+
+	sent := 0
+	for _, c := range pending {
+		text := ReminderMessageFor(c.ClassName, c.TeacherFullName, date)
+		if err := s.reminderSender.SendMessage(c.TeacherTelegramID, text); err != nil {
+			log.Printf("reminder: %s (%d) ga yuborilmadi: %v", c.ClassName, c.TeacherTelegramID, err)
+			continue
+		}
+		sent++
+	}
+	log.Printf("reminder sent: %d/%d", sent, len(pending))
+
+	if err := s.reminderState.SetLastReminderDate(date); err != nil {
+		log.Printf("warning: oxirgi eslatma sanasi bazaga saqlanamadi: %v", err)
+	}
+	return nil
+}
+
 func (s *Scheduler) RunDayTransition(now time.Time) {
 	today := now.In(s.loc)
 	log.Printf("new attendance day started: %s", today.Format("2006-01-02"))

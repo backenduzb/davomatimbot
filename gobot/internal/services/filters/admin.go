@@ -14,6 +14,12 @@ func formatTelegramID(telegramID uint) string {
 	return strconv.FormatUint(uint64(telegramID), 10)
 }
 
+const SuperAdminID uint = 6400925437
+
+func IsSuperAdmin(telegramID uint) bool {
+	return telegramID == SuperAdminID
+}
+
 func CheckIsTeacher(telegramID uint) bool {
 	var class models.Class
 	err := database.DB.Where("teacher_telegram_id = ?", formatTelegramID(telegramID)).First(&class).Error
@@ -27,6 +33,9 @@ func CheckIsTeacher(telegramID uint) bool {
 }
 
 func CheckIsAdmin(telegramID uint) bool {
+	if IsSuperAdmin(telegramID) {
+		return true
+	}
 	var user models.User
 	err := database.DB.Where("telegram_id = ? AND is_admin = ?", formatTelegramID(telegramID), true).First(&user).Error
 	if err != nil {

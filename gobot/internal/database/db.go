@@ -38,6 +38,7 @@ func Connect(dsn string) {
 		&models.ClassName{},
 		&models.Student{},
 		&models.Attendance{},
+		&models.BotSetting{},
 	)
 	DB = db
 }

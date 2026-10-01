@@ -9,7 +9,10 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-const LastReportDateKey = "last_report_date"
+const (
+	LastReportDateKey   = "last_report_date"
+	LastReminderDateKey = "last_reminder_date"
+)
 
 type Store struct{}
 
@@ -30,6 +33,29 @@ func (Store) GetLastReportDate() (date time.Time) {
 func (Store) SetLastReportDate(date time.Time) error {
 	state := models.SchedulerState{
 		StateKey: LastReportDateKey,
+		Value:    date.Format("2006-01-02"),
+	}
+	return database.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "state_key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
+	}).Create(&state).Error
+}
+
+func (Store) GetLastReminderDate() (date time.Time) {
+	var state models.SchedulerState
+	if err := database.DB.Where("state_key = ?", LastReminderDateKey).First(&state).Error; err != nil {
+		return time.Time{}
+	}
+	t, err := time.Parse("2006-01-02", state.Value)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
+func (Store) SetLastReminderDate(date time.Time) error {
+	state := models.SchedulerState{
+		StateKey: LastReminderDateKey,
 		Value:    date.Format("2006-01-02"),
 	}
 	return database.DB.Clauses(clause.OnConflict{

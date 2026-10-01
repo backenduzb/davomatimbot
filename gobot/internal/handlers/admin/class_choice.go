@@ -28,10 +28,27 @@ func HandleAdminClassChoice(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	session := sessions.GetSession(userID)
 	if session == nil || !session.IsAdmin {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", &gotgbot.SendMessageOpts{
-			ReplyMarkup: gotgbot.ReplyKeyboardRemove{RemoveKeyboard: true},
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start yuboring yoki 👇 tugmani bosing.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.MainKeyboard(),
 		})
 		return handlers.EndConversation()
+	}
+
+	// Menyu tugmalari sinf tanlash paytida bosilsa — mos oqimga yo'naltiramiz.
+	if replyKeyboards.IsBroadcast(choice) {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "📢 Barcha ustozlarga yuboriladigan xabarni yozing yoki sticker/GIF yuboring.\n\nBekor qilish uchun /cancel buyrug'ini yuboring.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: gotgbot.ReplyKeyboardRemove{RemoveKeyboard: true},
+		})
+		return handlers.NextConversationState(states.StateWaitingAdminBroadcast)
+	}
+	if replyKeyboards.IsDavomatTopshirish(choice) {
+		return botHandlers.StartAdminAttendance(b, ctx)
+	}
+	if replyKeyboards.IsCongratsToggle(choice) {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "Menyudan birini tanlang:", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.AdminMenuKeyboard(),
+		})
+		return handlers.NextConversationState(states.StateWaitingAdminMenu)
 	}
 
 	classList := classes.GetAllClasses()
@@ -68,10 +85,26 @@ func HandleAdminTeacherChoice(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	session := sessions.GetSession(userID)
 	if session == nil || !session.IsAdmin {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", &gotgbot.SendMessageOpts{
-			ReplyMarkup: gotgbot.ReplyKeyboardRemove{RemoveKeyboard: true},
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start yuboring yoki 👇 tugmani bosing.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.MainKeyboard(),
 		})
 		return handlers.EndConversation()
+	}
+
+	if replyKeyboards.IsBroadcast(choice) {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "📢 Barcha ustozlarga yuboriladigan xabarni yozing yoki sticker/GIF yuboring.\n\nBekor qilish uchun /cancel buyrug'ini yuboring.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: gotgbot.ReplyKeyboardRemove{RemoveKeyboard: true},
+		})
+		return handlers.NextConversationState(states.StateWaitingAdminBroadcast)
+	}
+	if replyKeyboards.IsDavomatTopshirish(choice) {
+		return botHandlers.StartAdminAttendance(b, ctx)
+	}
+	if replyKeyboards.IsCongratsToggle(choice) {
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "Menyudan birini tanlang:", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.AdminMenuKeyboard(),
+		})
+		return handlers.NextConversationState(states.StateWaitingAdminMenu)
 	}
 
 	classList := classes.GetAllClasses()

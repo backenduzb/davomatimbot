@@ -5,8 +5,10 @@ import (
 
 	"bot/internal/handlers"
 	adminHandlers "bot/internal/handlers/admin"
+	"bot/internal/handlers/guest"
 	"bot/internal/handlers/users"
 	"bot/internal/repository/states"
+	replyKeyboards "bot/internal/services/keyboards/reply"
 	"bot/utils"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
@@ -14,20 +16,47 @@ import (
 	tg "github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
 )
 
-// isPlainText buyruq bo'lmagan matnli xabarlarni filtrlaydi — shunda
-// /cancel kabi buyruqlar fallback handlerga o'tadi.
 func isPlainText(msg *gotgbot.Message) bool {
 	return msg.Text != "" && !strings.HasPrefix(msg.Text, "/")
+}
+
+func isDavomatButton(msg *gotgbot.Message) bool {
+	return msg.Text != "" && replyKeyboards.IsDavomatTopshirish(msg.Text)
+}
+
+func isBroadcastInput(msg *gotgbot.Message) bool {
+	if msg == nil {
+		return false
+	}
+	if msg.Text != "" {
+		return !strings.HasPrefix(msg.Text, "/")
+	}
+	if msg.Caption != "" {
+		return true
+	}
+	return msg.Sticker != nil ||
+		msg.Animation != nil ||
+		len(msg.Photo) > 0 ||
+		msg.Video != nil ||
+		msg.Document != nil ||
+		msg.Voice != nil ||
+		msg.Audio != nil
 }
 
 func RegisterSimpleHandler(dp *ext.Dispatcher) {
 	attendanceConversation := tg.NewConversation(
 		[]ext.Handler{
 			tg.NewCommand("start", handlers.HandleStart),
+			tg.NewMessage(isDavomatButton, handlers.HandleStart),
 		},
 
 		map[string][]ext.Handler{
-			// Admin sinfni reply klaviatura (matnli tugma) orqali tanlaydi.
+			states.StateWaitingAdminMenu: {
+				tg.NewMessage(isPlainText, adminHandlers.HandleAdminMenuChoice),
+			},
+			states.StateWaitingAdminBroadcast: {
+				tg.NewMessage(isBroadcastInput, adminHandlers.HandleAdminBroadcastInput),
+			},
 			states.StateWaitingAdminClassChoice: {
 				tg.NewMessage(isPlainText, adminHandlers.HandleAdminClassChoice),
 			},
@@ -52,12 +81,17 @@ func RegisterSimpleHandler(dp *ext.Dispatcher) {
 			states.StateWaitingReasonConfirm: {
 				tg.NewCallback(func(cb *gotgbot.CallbackQuery) bool { return true }, users.HandleReasonConfirm),
 			},
-			// Kech kelgan o'quvchilarni kiritish bosqichi.
 			states.StateWaitingLateStudent: {
 				tg.NewMessage(isPlainText, users.HandleLateStudentSelected),
 			},
 			states.StateWaitingLateConfirm: {
 				tg.NewCallback(func(cb *gotgbot.CallbackQuery) bool { return true }, users.HandleLateConfirm),
+			},
+			states.StateWaitingGuestTeacherChoice: {
+				tg.NewMessage(isPlainText, guest.HandleGuestTeacherChoice),
+			},
+			states.StateWaitingGuestCongratsInput: {
+				tg.NewMessage(isBroadcastInput, guest.HandleGuestCongratsInput),
 			},
 		},
 

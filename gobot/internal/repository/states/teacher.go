@@ -1,6 +1,8 @@
 package states
 
 const (
+	StateWaitingAdminMenu        = "waiting_admin_menu"
+	StateWaitingAdminBroadcast   = "waiting_admin_broadcast"
 	StateWaitingAdminClassChoice   = "waiting_admin_class_choice"
 	StateWaitingAdminTeacherChoice = "waiting_admin_teacher_choice"
 	StateWaitingAbsentTypeChoice = "waiting_absent_type_choice"
@@ -13,4 +15,7 @@ const (
 
 	StateWaitingLateStudent = "waiting_late_student"
 	StateWaitingLateConfirm = "waiting_late_confirm"
+
+	StateWaitingGuestTeacherChoice = "waiting_guest_teacher_choice"
+	StateWaitingGuestCongratsInput = "waiting_guest_congrats_input"
 )

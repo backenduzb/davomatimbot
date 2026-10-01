@@ -6,6 +6,7 @@ import (
 	"bot/internal/repository/sessions"
 	"bot/internal/repository/states"
 	"bot/internal/services/keyboards/inline"
+	replyKeyboards "bot/internal/services/keyboards/reply"
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
@@ -16,7 +17,9 @@ func HandleReasonInput(b *gotgbot.Bot, ctx *ext.Context) error {
 	reasonText := ctx.Message.Text
 	session := sessions.GetSession(userID)
 	if session == nil {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", nil)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start yuboring yoki 👇 tugmani bosing.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.MainKeyboard(),
+		})
 		return handlers.EndConversation()
 	}
 

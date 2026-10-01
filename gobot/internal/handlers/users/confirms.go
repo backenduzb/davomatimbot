@@ -6,6 +6,7 @@ import (
 	"bot/internal/repository/states"
 	"bot/internal/repository/students"
 	"bot/internal/services/keyboards/inline"
+	replyKeyboards "bot/internal/services/keyboards/reply"
 	"bot/utils"
 	"fmt"
 
@@ -21,7 +22,9 @@ func HandleAbsentConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	session := sessions.GetSession(userID)
 	if session == nil {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", nil)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start yuboring yoki 👇 tugmani bosing.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.MainKeyboard(),
+		})
 		return handlers.EndConversation()
 	}
 
@@ -54,7 +57,9 @@ func HandleReasonConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	session := sessions.GetSession(userID)
 	if session == nil {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", nil)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start yuboring yoki 👇 tugmani bosing.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.MainKeyboard(),
+		})
 		return handlers.EndConversation()
 	}
 
@@ -65,7 +70,6 @@ func HandleReasonConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 			states.StateWaitingReasonStudent)
 	}
 
-	// Sababli bosqichi tugagach — kech kelganlar bosqichiga o'tamiz.
 	if query.Data == "go_to_late" {
 		report := session.GenerateInfoText()
 		msgText := fmt.Sprintf("📝 Sababli kelmaganlar ro'yxati shakllandi.\n%s\n\n⏰ Kech kelgan o'quvchilar bormi?", report)
@@ -76,14 +80,12 @@ func HandleReasonConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 		return handlers.NextConversationState(states.StateWaitingLateConfirm)
 	}
 
-	// Eski oqim bilan moslik: bu bosqichda ham saqlashga ruxsat beramiz.
 	if query.Data == "save_attendance" {
 		return saveAttendanceAndFinish(b, ctx, session, userID)
 	}
 	return nil
 }
 
-// HandleLateConfirm kech kelgan o'quvchilarni kiritish bosqichini boshqaradi.
 func HandleLateConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 	query := ctx.Update.CallbackQuery
 	userID := uint(ctx.EffectiveUser.Id)
@@ -91,7 +93,9 @@ func HandleLateConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	session := sessions.GetSession(userID)
 	if session == nil {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start buyrug'ini qayta yuboring.", nil)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sessiya topilmadi. /start yuboring yoki 👇 tugmani bosing.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.MainKeyboard(),
+		})
 		return handlers.EndConversation()
 	}
 
@@ -108,11 +112,12 @@ func HandleLateConfirm(b *gotgbot.Bot, ctx *ext.Context) error {
 	return nil
 }
 
-// saveAttendanceAndFinish davomatni bazaga yozadi va hisobotni yuboradi.
 func saveAttendanceAndFinish(b *gotgbot.Bot, ctx *ext.Context, session *sessions.AttendanceSession, userID uint) error {
 	classID := session.ResolveClassID(userID)
 	if classID == 0 {
-		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sinf aniqlanmadi. /start buyrug'ini qayta yuboring.", nil)
+		_, _ = b.SendMessage(ctx.EffectiveChat.Id, "⚠️ Sinf aniqlanmadi. /start yuboring yoki 👇 tugmani bosing.", &gotgbot.SendMessageOpts{
+			ReplyMarkup: replyKeyboards.MainKeyboard(),
+		})
 		return handlers.EndConversation()
 	}
 
@@ -123,9 +128,14 @@ func saveAttendanceAndFinish(b *gotgbot.Bot, ctx *ext.Context, session *sessions
 
 	reportText := utils.GenerateFullReport(userID, true)
 
-	_, err := b.SendMessage(ctx.EffectiveChat.Id, reportText, &gotgbot.SendMessageOpts{
+	markup := replyKeyboards.MainKeyboard()
+	if session.IsAdmin {
+		markup = replyKeyboards.AdminMenuKeyboard()
+	}
+
+	_, err := b.SendMessage(ctx.EffectiveChat.Id, reportText+"\n\nQayta topshirish uchun 👇 tugmani bosing.", &gotgbot.SendMessageOpts{
 		ParseMode:   "HTML",
-		ReplyMarkup: gotgbot.ReplyKeyboardRemove{RemoveKeyboard: true},
+		ReplyMarkup: markup,
 	})
 	if err != nil {
 		return err

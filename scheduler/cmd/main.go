@@ -12,6 +12,7 @@ import (
 	"scheduler/config/settings"
 	"scheduler/internal/database"
 	"scheduler/internal/repository/attendance"
+	"scheduler/internal/repository/classes"
 	"scheduler/internal/repository/schedulerstate"
 	"scheduler/internal/services/scheduler"
 	"scheduler/internal/services/telegram"
@@ -44,11 +45,16 @@ func main() {
 		log.Fatalf("telegram bot yaratilmadi: %v", err)
 	}
 
+	sender := telegram.NewSender(bot)
 	s := scheduler.New(
 		loc,
 		chatID,
-		telegram.NewSender(bot),
+		sender,
 		attendance.ListForDate,
+		schedulerstate.Default,
+	).WithReminder(
+		sender,
+		classes.ListUnsubmittedForDate,
 		schedulerstate.Default,
 	)
 
